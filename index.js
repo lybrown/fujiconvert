@@ -1,0 +1,168 @@
+// vim: ts=2:sts=2:sw=2
+function readSingleFile(e) {
+  var file = e.target.files[0];
+  if (!file) {
+    return;
+  }
+
+  // Display as Text
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var contents = e.target.result;
+    displayContents(contents);
+  };
+  reader.readAsText(file);
+
+  // Read as binary and offer download
+  var binreader = new FileReader();
+  var readBar = document.getElementById("readBar");
+  var zipBar = document.getElementById("zipBar");
+  var fujifyBar = document.getElementById("fujifyBar");
+  readBar.style.width = "0%";
+  zipBar.style.width = "0%";
+  fujifyBar.style.width = "0%";
+  var readMessage = document.getElementById("readMessage");
+  readMessage.innerText = "";
+  binreader.onload = function(e) {
+    readBar.style.width = "100%";
+    var contents = e.target.result;
+    var element = document.getElementById('base64');
+    element.textContent = btoa(String.fromCharCode(
+        ...new Uint8Array(contents.slice(0, 1024))));
+    file_to_xex(contents, function(xex) {
+      var xexname = file.name.replace(/\.[^\/.]+$/, "") + ".xex";
+      var zipname = file.name.replace(/\.[^\/.]+$/, "") + ".zip";
+      var zip = new JSZip();
+      zip.file(xexname, xex);
+      zip.generateAsync({type: "blob", compression: "DEFLATE"},
+      function updateCallback(metadata) {
+        console.log("zip: " + metadata.percent);
+        zipBar.style.width = metadata.percent + '%';
+      }).then(function (blob) {
+        offerDownload(zipname, blob);
+      });
+    });
+  };
+  binreader.onprogress = function(event) {
+    readBar.style.width = (event.loaded * 100 / event.total) + "%";
+  };
+  binreader.onerror = function(e) {
+    readMessage.innerText = "ReadError";
+  };
+  binreader.readAsArrayBuffer(file);
+}
+
+function clamp(num, min, max) {
+  return num <= min ? min : num >= max ? max : num;
+}
+
+function lerp(x, slo, shi, dlo, dhi) {
+  return dlo + (x-slo)/(shi-slo) * (dhi-dlo);
+}
+
+// http://2ality.com/2015/10/concatenating-typed-arrays.html
+function concatenate(resultConstructor, ...arrays) {
+  let totalLength = 0;
+  for (let arr of arrays) {
+    totalLength += arr.length;
+  }
+  let result = new resultConstructor(totalLength);
+  let offset = 0;
+  for (let arr of arrays) {
+    result.set(arr, offset);
+    offset += arr.length;
+  }
+  return result;
+}
+
+function header(start, length) {
+  var end = start + length - 1;
+  return [start & 0xFF, start >> 8, end & 0xFF, end >> 8];
+}
+
+function file_to_xex(contents, onConverted) {
+  var bar = document.getElementById("fujifyBar");
+  var c = new AudioContext();
+  var ini = [0xE2, 0x02, 0xE3, 0x02, 0x30, 0x03];
+  var quiet = new Uint8Array([0xE2, 0x02, 0xE3, 0x02, 0x66, 0x03]);
+  var player_b64 = "//8AA3YDeKkAjQ7SjQ7UjQDUqf+NDdCpD40S0KlQjQjSqQCNA9KpAI0F0qkAjQfSqf+NAtJgqa+NAdKpUI0I0qDArQAEjQrUjQDSjQnSGGlEjQDQ7j0D0OnuPgPMPgPQ4akAjT0DqQSNPgNgqQCNAdKNA9KNBdKNB9JMdAPiAuMCAAM=";
+  var player_u8 = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
+  var buf = 0x400;
+  var bufend = 0xC000;
+  var buflen = bufend - buf;
+  var decodeWheel = document.getElementById("decodeWheel");
+  var decodeMessage = document.getElementById("decodeMessage");
+  decodeWheel.style.visibility = "visible";
+  decodeMessage.innerText = "";
+  c.decodeAudioData(contents,function(buffer) {
+    decodeWheel.style.visibility = "hidden";
+    myBuffer = buffer;
+    var seconds = buffer.duration;
+    var oc = new OfflineAudioContext(1, 15600*seconds, 15600);
+    var source = oc.createBufferSource();
+    source.buffer = myBuffer;
+    source.connect(oc.destination);
+    source.start();
+    bar.style.width = "0%";
+    oc.startRendering().then(function(renderedBuffer) {
+      console.log("Rendering completed successfully");
+      var data = renderedBuffer.getChannelData(0);
+      var parts = [];
+      var i = 0;
+      var done = function() {
+        var xex = concatenate(Uint8Array, player_u8, ...parts, quiet);
+        onConverted(xex);
+      };
+      var loop = function() {
+        var end = clamp(i + buflen, 0, data.length);
+        var len = end - i;
+        var part = new Uint8Array(4 + len + 6);
+        part.set(header(buf, len));
+        for (j = 4, k = i; j < len + 4; ++j, ++k) {
+          var audf = clamp(lerp(data[k], -1, 1, -10, 110), 0, 100);
+          part[j] = audf;
+        }
+        part.set(ini, j);
+        parts.push(part);
+        // update progress bar
+        bar.style.width = (i*100/data.length) + "%";
+        if (end < data.length) {
+          i = i + buflen;
+          setTimeout(loop, 0);
+        } else {
+          bar.style.width = "100%";
+          setTimeout(done, 0);
+        }
+      };
+      loop();
+    });
+  }, function(e) {
+    decodeWheel.style.visibility = "hidden";
+    decodeMessage.innerText = "Decode Error";
+  });
+}
+
+function displayContents(contents) {
+//  var element = document.getElementById('file-content');
+//  element.textContent = contents.substring(0, 65535);
+}
+
+function offerDownload(name, blob) {
+  var element = document.getElementById('download');
+  element.innerText = name;
+  element.download = name;
+
+  // data: fails for files over 2MB
+  // https://stackoverflow.com/questions/16761927/aw-snap-when-data-uri-is-too-large
+  //element.href = "data:;base64," + btoa(contents);
+
+  // createObjectURL works on Blobs and Files
+  element.href = window.URL.createObjectURL(blob);
+  // Lifetime is tied to browser window object
+}
+
+function init() {
+  document.getElementById('file-input').
+    addEventListener('change', readSingleFile, false);
+}
+

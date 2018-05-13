@@ -1,0 +1,81 @@
+<html>
+<style>
+.progress {
+  width: 100%;
+  background-color: #ddd;
+}
+
+.bar {
+  width: 0%;
+  height: 30px;
+  background-color: #4CAF50;
+}
+
+.wheel {
+  border: 16px solid #f3f3f3;
+  border-radius: 50%;
+  border-top: 16px solid #3498db;
+  width: 100px;
+  height: 100px;
+  -webkit-animation: spin 2s linear infinite;
+  animation: spin 2s linear infinite;
+  visibility: hidden;
+}
+
+@-webkit-keyframes spin {
+  0% { -webkit-transform: rotate(0deg); }
+  100% { -webkit-transform: rotate(360deg); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>
+<head>
+<title>Fujify</title>
+<script src="jszip.min.js"></script>
+<script src="index.js"></script>
+</head>
+<body onload="init()">
+
+<input type="file" id="file-input" />
+
+<h3>Read</h3>
+
+<div id="readProgress" class="progress">
+<div id="readBar" class="bar">
+</div>
+</div>
+<pre id="readMessage"></pre>
+
+<h3>Decode</h3>
+
+<div id="decodeWheel" class="wheel"></div>
+<pre id="decodeMessage"></pre>
+
+<h3>Fujify</h3>
+
+<div id="fujifyProgress" class="progress">
+<div id="fujifyBar" class="bar">
+</div>
+</div>
+
+<h3>Zip</h3>
+
+<div id="zipProgress" class="progress">
+<div id="zipBar" class="bar">
+</div>
+</div>
+
+<h3>Download</h3>
+
+<a id="download"></a>
+
+<h3>Contents of the file:</h3>
+<pre id="file-content"></pre>
+
+<h3>Base64:</h3>
+<pre id="base64"></pre>
+</body>
+</html>
