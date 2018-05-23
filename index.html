@@ -15,11 +15,15 @@
   border: 16px solid #f3f3f3;
   border-radius: 50%;
   border-top: 16px solid #3498db;
-  width: 100px;
-  height: 100px;
+  width: 50px;
+  height: 50px;
   -webkit-animation: spin 2s linear infinite;
   animation: spin 2s linear infinite;
   visibility: hidden;
+}
+
+.divparent div {
+/*    float: left; */
 }
 
 @-webkit-keyframes spin {
@@ -33,11 +37,55 @@
 }
 </style>
 <head>
-<title>Fujify</title>
+<title>FujiSound</title>
 <script src="jszip.min.js"></script>
 <script src="index.js"></script>
 </head>
 <body onload="init()">
+
+<h1>FujiSound</h1>
+
+<h3>Settings</h3>
+
+<form action="" id="settings">
+<div class="divparent">
+<div>
+    Playback Method:<br>
+    <input type="radio" name="method" value="pcm4+4" checked> PCM4+4<br>
+    <input type="radio" name="method" value="pcm4"> PCM4<br>
+    <input type="radio" name="method" value="pwm"> PWM<br>
+</div>
+<div>
+    Channels:<br>
+    <input type="radio" name="channels" value="mono" checked> Mono<br>
+    <input type="radio" name="channels" value="stereo"> Stereo<br>
+</div>
+<div>
+    Frequency:<br>
+    <input type="radio" name="frequency" value="60kHz"> 60kHz<br>
+    <input type="radio" name="frequency" value="48kHz"> 48kHz<br>
+    <input type="radio" name="frequency" value="44kHz" checked> 44kHz<br>
+    <input type="radio" name="frequency" value="34kHz"> 34kHz<br>
+    <input type="radio" name="frequency" value="15kHz"> 15kHz<br>
+    <input type="radio" name="frequency" value="8kHz"> 8kHz<br>
+</div>
+    Gain: <input type="text" name="gain" value="1.5"><br>
+    Start: <input type="text" name="start" value="0"><br>
+    Duration: <input type="text" name="duration" value="-1"><br>
+<div>
+    Output Media:<br>
+    <input type="radio" name="media" value="ram"> RAM XEX<br>
+    <input type="radio" name="media" value="thecart" checked> The!Cart<br>
+    <input type="radio" name="media" value="megamax"> MegaMax<br>
+    <input type="radio" name="media" value="megacart"> MegaCart<br>
+    <input type="radio" name="media" value="atarimax"> Atarimax<br>
+    <input type="radio" name="media" value="xegs"> XEGS<br>
+    <input type="radio" name="media" value="sic"> SIC!<br>
+</div>
+</div>
+</form>
+
+<h3>Select Input Media</h3>
 
 <input type="file" id="file-input" />
 
@@ -54,10 +102,10 @@
 <div id="decodeWheel" class="wheel"></div>
 <pre id="decodeMessage"></pre>
 
-<h3>Fujify</h3>
+<h3>Convert</h3>
 
-<div id="fujifyProgress" class="progress">
-<div id="fujifyBar" class="bar">
+<div id="convertProgress" class="progress">
+<div id="convertBar" class="bar">
 </div>
 </div>
 
@@ -72,10 +120,5 @@
 
 <a id="download"></a>
 
-<h3>Contents of the file:</h3>
-<pre id="file-content"></pre>
-
-<h3>Base64:</h3>
-<pre id="base64"></pre>
 </body>
 </html>

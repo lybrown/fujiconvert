@@ -1,43 +1,52 @@
 // vim: ts=2:sts=2:sw=2
+function getRadio(radio) {
+  for (var i = 0; i < radio.length; ++i) {
+    if (radio[i].checked) {
+      return radio[i].value;
+    }
+  }
+  return "NONE";
+}
 function readSingleFile(e) {
   var file = e.target.files[0];
   if (!file) {
     return;
   }
 
-  // Display as Text
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var contents = e.target.result;
-    displayContents(contents);
+  var form = document.getElementById("settings");
+  var settings = {
+    method: getRadio(form["method"]),
+    channels: getRadio(form["channels"]),
+    frequency: getRadio(form["frequency"]),
+    media: getRadio(form["media"]),
+    gain: form["gain"].value,
+    start: form["start"].value,
+    duration: form["duration"].value,
   };
-  reader.readAsText(file);
+  console.log(settings);
 
   // Read as binary and offer download
   var binreader = new FileReader();
   var readBar = document.getElementById("readBar");
   var zipBar = document.getElementById("zipBar");
-  var fujifyBar = document.getElementById("fujifyBar");
+  var convertBar = document.getElementById("convertBar");
   readBar.style.width = "0%";
   zipBar.style.width = "0%";
-  fujifyBar.style.width = "0%";
+  convertBar.style.width = "0%";
   var readMessage = document.getElementById("readMessage");
   readMessage.innerText = "";
   binreader.onload = function(e) {
     readBar.style.width = "100%";
     var contents = e.target.result;
-    var element = document.getElementById('base64');
-    element.textContent = btoa(String.fromCharCode(
-        ...new Uint8Array(contents.slice(0, 1024))));
-    file_to_xex(contents, function(xex) {
+    file_to_a8(contents, settings, function(xex) {
       var xexname = file.name.replace(/\.[^\/.]+$/, "") + ".xex";
       var zipname = file.name.replace(/\.[^\/.]+$/, "") + ".zip";
       var zip = new JSZip();
       zip.file(xexname, xex);
       zip.generateAsync({type: "blob", compression: "DEFLATE"},
-      function updateCallback(metadata) {
-        console.log("zip: " + metadata.percent);
-        zipBar.style.width = metadata.percent + '%';
+        function updateCallback(metadata) {
+          //console.log("zip: " + metadata.percent);
+          zipBar.style.width = metadata.percent + '%';
       }).then(function (blob) {
         offerDownload(zipname, blob);
       });
@@ -80,8 +89,8 @@ function header(start, length) {
   return [start & 0xFF, start >> 8, end & 0xFF, end >> 8];
 }
 
-function file_to_xex(contents, onConverted) {
-  var bar = document.getElementById("fujifyBar");
+function file_to_a8(contents, settings, onConverted) {
+  var bar = document.getElementById("convertBar");
   var c = new AudioContext();
   var ini = [0xE2, 0x02, 0xE3, 0x02, 0x30, 0x03];
   var quiet = new Uint8Array([0xE2, 0x02, 0xE3, 0x02, 0x66, 0x03]);
@@ -100,8 +109,11 @@ function file_to_xex(contents, onConverted) {
     var seconds = buffer.duration;
     var oc = new OfflineAudioContext(1, 15600*seconds, 15600);
     var source = oc.createBufferSource();
+    var gainNode = oc.createGain();
+    gainNode.gain.setValueAtTime(settings.gain, c.currentTime);
     source.buffer = myBuffer;
-    source.connect(oc.destination);
+    source.connect(gainNode);
+    gainNode.connect(oc.destination);
     source.start();
     bar.style.width = "0%";
     oc.startRendering().then(function(renderedBuffer) {
@@ -119,7 +131,7 @@ function file_to_xex(contents, onConverted) {
         var part = new Uint8Array(4 + len + 6);
         part.set(header(buf, len));
         for (j = 4, k = i; j < len + 4; ++j, ++k) {
-          var audf = clamp(lerp(data[k], -1, 1, -10, 110), 0, 100);
+          var audf = clamp(lerp(data[k], -1, 1, 0, 101), 0, 101);
           part[j] = audf;
         }
         part.set(ini, j);
@@ -138,13 +150,8 @@ function file_to_xex(contents, onConverted) {
     });
   }, function(e) {
     decodeWheel.style.visibility = "hidden";
-    decodeMessage.innerText = "Decode Error";
+    decodeMessage.innerText = "Decode Error: " + e;
   });
-}
-
-function displayContents(contents) {
-//  var element = document.getElementById('file-content');
-//  element.textContent = contents.substring(0, 65535);
 }
 
 function offerDownload(name, blob) {
