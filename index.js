@@ -30,9 +30,12 @@ function readSingleFile(e) {
   var readBar = document.getElementById("readBar");
   var zipBar = document.getElementById("zipBar");
   var convertBar = document.getElementById("convertBar");
+  var download = document.getElementById("download");
   readBar.style.width = "0%";
   zipBar.style.width = "0%";
   convertBar.style.width = "0%";
+  download.innerText = "";
+  download.href = "";
   var readMessage = document.getElementById("readMessage");
   readMessage.innerText = "";
   binreader.onload = function(e) {
@@ -90,15 +93,7 @@ function header(start, length) {
 }
 
 function file_to_a8(contents, settings, onConverted) {
-  var bar = document.getElementById("convertBar");
   var c = new AudioContext();
-  var ini = [0xE2, 0x02, 0xE3, 0x02, 0x30, 0x03];
-  var quiet = new Uint8Array([0xE2, 0x02, 0xE3, 0x02, 0x66, 0x03]);
-  var player_b64 = "//8AA3YDeKkAjQ7SjQ7UjQDUqf+NDdCpD40S0KlQjQjSqQCNA9KpAI0F0qkAjQfSqf+NAtJgqa+NAdKpUI0I0qDArQAEjQrUjQDSjQnSGGlEjQDQ7j0D0OnuPgPMPgPQ4akAjT0DqQSNPgNgqQCNAdKNA9KNBdKNB9JMdAPiAuMCAAM=";
-  var player_u8 = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
-  var buf = 0x400;
-  var bufend = 0xC000;
-  var buflen = bufend - buf;
   var decodeWheel = document.getElementById("decodeWheel");
   var decodeMessage = document.getElementById("decodeMessage");
   decodeWheel.style.visibility = "visible";
@@ -115,38 +110,9 @@ function file_to_a8(contents, settings, onConverted) {
     source.connect(gainNode);
     gainNode.connect(oc.destination);
     source.start();
-    bar.style.width = "0%";
     oc.startRendering().then(function(renderedBuffer) {
       console.log("Rendering completed successfully");
-      var data = renderedBuffer.getChannelData(0);
-      var parts = [];
-      var i = 0;
-      var done = function() {
-        var xex = concatenate(Uint8Array, player_u8, ...parts, quiet);
-        onConverted(xex);
-      };
-      var loop = function() {
-        var end = clamp(i + buflen, 0, data.length);
-        var len = end - i;
-        var part = new Uint8Array(4 + len + 6);
-        part.set(header(buf, len));
-        for (j = 4, k = i; j < len + 4; ++j, ++k) {
-          var audf = clamp(lerp(data[k], -1, 1, 0, 101), 0, 101);
-          part[j] = audf;
-        }
-        part.set(ini, j);
-        parts.push(part);
-        // update progress bar
-        bar.style.width = (i*100/data.length) + "%";
-        if (end < data.length) {
-          i = i + buflen;
-          setTimeout(loop, 0);
-        } else {
-          bar.style.width = "100%";
-          setTimeout(done, 0);
-        }
-      };
-      loop();
+      convert_to_xex(renderedBuffer, onConverted);
     });
   }, function(e) {
     decodeWheel.style.visibility = "hidden";
@@ -154,8 +120,49 @@ function file_to_a8(contents, settings, onConverted) {
   });
 }
 
+function convert_to_xex(renderedBuffer, onConverted) {
+  var ini = [0xE2, 0x02, 0xE3, 0x02, 0x30, 0x03];
+  var quiet = new Uint8Array([0xE2, 0x02, 0xE3, 0x02, 0x66, 0x03]);
+  var buf = 0x400;
+  var bufend = 0xC000;
+  var buflen = bufend - buf;
+  var data = renderedBuffer.getChannelData(0);
+  var parts = [];
+  var i = 0;
+  var done = function() {
+    var player_b64 = "//8AA3YDeKkAjQ7SjQ7UjQDUqf+NDdCpD40S0KlQjQjSqQCNA9KpAI0F0qkAjQfSqf+NAtJgqa+NAdKpUI0I0qDArQAEjQrUjQDSjQnSGGlEjQDQ7j0D0OnuPgPMPgPQ4akAjT0DqQSNPgNgqQCNAdKNA9KNBdKNB9JMdAPiAuMCAAM=";
+    var player_u8 = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
+    var xex = concatenate(Uint8Array, player_u8, ...parts, quiet);
+    onConverted(xex);
+  };
+  var bar = document.getElementById("convertBar");
+  bar.style.width = "0%";
+  var loop = function() {
+    var end = clamp(i + buflen, 0, data.length);
+    var len = end - i;
+    var part = new Uint8Array(4 + len + 6);
+    part.set(header(buf, len));
+    for (j = 4, k = i; j < len + 4; ++j, ++k) {
+      var audf = clamp(lerp(data[k], -1, 1, 0, 101), 0, 101);
+      part[j] = audf;
+    }
+    part.set(ini, j);
+    parts.push(part);
+    // update progress bar
+    bar.style.width = (i*100/data.length) + "%";
+    if (end < data.length) {
+      i = i + buflen;
+      setTimeout(loop, 0);
+    } else {
+      bar.style.width = "100%";
+      setTimeout(done, 0);
+    }
+  };
+  loop();
+}
+
 function offerDownload(name, blob) {
-  var element = document.getElementById('download');
+  var element = document.getElementById("download");
   element.innerText = name;
   element.download = name;
 
@@ -169,7 +176,7 @@ function offerDownload(name, blob) {
 }
 
 function init() {
-  document.getElementById('file-input').
-    addEventListener('change', readSingleFile, false);
+  document.getElementById("file-input").
+    addEventListener("change", readSingleFile, false);
 }
 

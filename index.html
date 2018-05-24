@@ -23,7 +23,11 @@
 }
 
 .divparent div {
-/*    float: left; */
+    float: left; 
+}
+
+.divnofloat div {
+    float: none; 
 }
 
 @-webkit-keyframes spin {
@@ -37,18 +41,22 @@
 }
 </style>
 <head>
-<title>FujiSound</title>
+<title>FujiConvert</title>
 <script src="jszip.min.js"></script>
 <script src="index.js"></script>
 </head>
 <body onload="init()">
 
-<h1>FujiSound</h1>
+<h1>FujiConvert</h1>
 
 <h3>Settings</h3>
 
+<table width="100%">
+<tr>
+<td width="30%">
+
 <form action="" id="settings">
-<div class="divparent">
+<div>
 <div>
     Playback Method:<br>
     <input type="radio" name="method" value="pcm4+4" checked> PCM4+4<br>
@@ -75,6 +83,8 @@
 <div>
     Output Media:<br>
     <input type="radio" name="media" value="ram"> RAM XEX<br>
+    <input type="radio" name="media" value="ram"> Emulator Stream XEX<br>
+    <input type="radio" name="media" value="fat"> FAT player (flashjazzcat)<br>
     <input type="radio" name="media" value="thecart" checked> The!Cart<br>
     <input type="radio" name="media" value="megamax"> MegaMax<br>
     <input type="radio" name="media" value="megacart"> MegaCart<br>
@@ -85,6 +95,8 @@
 </div>
 </form>
 
+</td>
+<td>
 <h3>Select Input Media</h3>
 
 <input type="file" id="file-input" />
@@ -119,6 +131,9 @@
 <h3>Download</h3>
 
 <a id="download"></a>
+</td>
+</tr>
+</table>
 
 </body>
 </html>

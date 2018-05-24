@@ -1,3 +1,6 @@
+players.json: ram.obx obx2json
+	./obx2json $< $(out)
+
 det.run:
 simple.run:
 
