@@ -7,23 +7,49 @@ function getRadio(radio) {
   }
   return "NONE";
 }
+function getSettings() {
+  var form = document.getElementById("settings");
+  var settingsText = document.getElementById("settingsText");
+  var cycles = {
+    ntsc: 262*105*60,
+    pal: 312*105*50,
+  };
+  var period = {
+    "58kHz": 28,
+    "48kHz": 34,
+    "44kHz": 37,
+    "34kHz": 48,
+    "15kHz": 105,
+    "8kHz": 210,
+  };
+  var settings = {
+    method: getRadio(form["method"]),
+    channels: getRadio(form["channels"]),
+    region: getRadio(form["region"]),
+    frequency: getRadio(form["frequency"]),
+    media: getRadio(form["media"]),
+    gain: form["gain"].value,
+    offset: form["offset"].value,
+    duration: form["duration"].value,
+  };
+  settings.period = period[settings.frequency];
+  if (settings.channels == "stereo") {
+    settings.period = clamp(settings.period, period["34kHz"], 999);
+  }
+  if (settings.method == "pwm") {
+    settings.period = clamp(settings.period, period["15kHz"], 999);
+  }
+  settings.freq = cycles[settings.region] / settings.period;
+  var pretty = JSON.stringify(settings, null, 4);
+  settingsText.innerText = pretty.replace(/[{}]\n?/gm, "");
+  return settings;
+}
 function readSingleFile(e) {
   var file = e.target.files[0];
   if (!file) {
     return;
   }
-
-  var form = document.getElementById("settings");
-  var settings = {
-    method: getRadio(form["method"]),
-    channels: getRadio(form["channels"]),
-    frequency: getRadio(form["frequency"]),
-    media: getRadio(form["media"]),
-    gain: form["gain"].value,
-    start: form["start"].value,
-    duration: form["duration"].value,
-  };
-  console.log(settings);
+  var settings = getSettings();
 
   // Read as binary and offer download
   var binreader = new FileReader();
@@ -101,15 +127,16 @@ function file_to_a8(contents, settings, onConverted) {
   c.decodeAudioData(contents,function(buffer) {
     decodeWheel.style.visibility = "hidden";
     myBuffer = buffer;
-    var seconds = buffer.duration;
-    var oc = new OfflineAudioContext(1, 15600*seconds, 15600);
+    var duration = settings.duration > 0 ?
+        clamp(settings.duration, 0, buffer.duration) : buffer.duration;
+    var oc = new OfflineAudioContext(1, 15600*duration, 15600);
     var source = oc.createBufferSource();
     var gainNode = oc.createGain();
     gainNode.gain.setValueAtTime(settings.gain, c.currentTime);
     source.buffer = myBuffer;
     source.connect(gainNode);
     gainNode.connect(oc.destination);
-    source.start();
+    source.start(0, settings.offset, duration);
     oc.startRendering().then(function(renderedBuffer) {
       console.log("Rendering completed successfully");
       convert_to_xex(renderedBuffer, onConverted);
@@ -122,7 +149,6 @@ function file_to_a8(contents, settings, onConverted) {
 
 function convert_to_xex(renderedBuffer, onConverted) {
   var ini = [0xE2, 0x02, 0xE3, 0x02, 0x30, 0x03];
-  var quiet = new Uint8Array([0xE2, 0x02, 0xE3, 0x02, 0x66, 0x03]);
   var buf = 0x400;
   var bufend = 0xC000;
   var buflen = bufend - buf;
@@ -132,6 +158,7 @@ function convert_to_xex(renderedBuffer, onConverted) {
   var done = function() {
     var player_b64 = "//8AA3YDeKkAjQ7SjQ7UjQDUqf+NDdCpD40S0KlQjQjSqQCNA9KpAI0F0qkAjQfSqf+NAtJgqa+NAdKpUI0I0qDArQAEjQrUjQDSjQnSGGlEjQDQ7j0D0OnuPgPMPgPQ4akAjT0DqQSNPgNgqQCNAdKNA9KNBdKNB9JMdAPiAuMCAAM=";
     var player_u8 = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
+    var quiet = new Uint8Array([0xE2, 0x02, 0xE3, 0x02, 0x66, 0x03]);
     var xex = concatenate(Uint8Array, player_u8, ...parts, quiet);
     onConverted(xex);
   };
@@ -140,11 +167,14 @@ function convert_to_xex(renderedBuffer, onConverted) {
   var loop = function() {
     var end = clamp(i + buflen, 0, data.length);
     var len = end - i;
-    var part = new Uint8Array(4 + len + 6);
-    part.set(header(buf, len));
+    var part = new Uint8Array(4 + buflen + 6);
+    part.set(header(buf, buflen));
     for (j = 4, k = i; j < len + 4; ++j, ++k) {
       var audf = clamp(lerp(data[k], -1, 1, 0, 101), 0, 101);
       part[j] = audf;
+    }
+    for (;j < buflen + 4; ++j) {
+      part[j] = 0;
     }
     part.set(ini, j);
     parts.push(part);
@@ -178,5 +208,8 @@ function offerDownload(name, blob) {
 function init() {
   document.getElementById("file-input").
     addEventListener("change", readSingleFile, false);
+  document.getElementById("settings").
+    addEventListener("change", getSettings, false);
+  getSettings();
 }
 

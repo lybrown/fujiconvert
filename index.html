@@ -49,11 +49,10 @@
 
 <h1>FujiConvert</h1>
 
-<h3>Settings</h3>
-
 <table width="100%">
 <tr>
-<td width="30%">
+<td width="30%" valign="top">
+<h3>Settings</h3>
 
 <form action="" id="settings">
 <div>
@@ -69,8 +68,13 @@
     <input type="radio" name="channels" value="stereo"> Stereo<br>
 </div>
 <div>
+    Region:<br>
+    <input type="radio" name="region" value="pal" checked> PAL<br>
+    <input type="radio" name="region" value="ntsc"> NTSC<br>
+</div>
+<div>
     Frequency:<br>
-    <input type="radio" name="frequency" value="60kHz"> 60kHz<br>
+    <!-- <input type="radio" name="frequency" value="58kHz"> 58kHz<br> -->
     <input type="radio" name="frequency" value="48kHz"> 48kHz<br>
     <input type="radio" name="frequency" value="44kHz" checked> 44kHz<br>
     <input type="radio" name="frequency" value="34kHz"> 34kHz<br>
@@ -78,7 +82,7 @@
     <input type="radio" name="frequency" value="8kHz"> 8kHz<br>
 </div>
     Gain: <input type="text" name="gain" value="1.5"><br>
-    Start: <input type="text" name="start" value="0"><br>
+    Offset: <input type="text" name="offset" value="0"><br>
     Duration: <input type="text" name="duration" value="-1"><br>
 <div>
     Output Media:<br>
@@ -96,7 +100,11 @@
 </form>
 
 </td>
-<td>
+<td valign="top">
+<h3>Settings</h3>
+
+<p id="settingsText"></p>
+
 <h3>Select Input Media</h3>
 
 <input type="file" id="file-input" />
