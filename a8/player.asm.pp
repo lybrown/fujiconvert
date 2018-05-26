@@ -139,32 +139,23 @@ branch
     jmp play ; 3 cycles
 next
     ; ert [>next]!=[>branch]
->>> if ($ram) {
-    ; Go to next RAM bank
-setbank
-    lda banks ; 4 cycles
-    bne setbank2 ; 3 cycles
-    mva #0 setbank+1 ; 6 cycles
-    lda banks+0 ; 4 cycles
-setbank2
-    sta PORTB ; 4 cycles
-    inc setbank+1 ; 6 cycles
-    jmp play ; 3 cycles
->>> } elsif ($cart) {
-jmp_nextbank
-    jmp $FFFF ; e.g. nextbank_thecart
+
+
+>>> if ($ram or $cart) {
+    jmp nextbank
 >>> } elsif ($emulator) {
     rts
 continue
->>> if ($pwm) {
+>>>   if ($pwm) {
     mva #$AF AUDC1
     mva #$50 AUDCTL
->>>   if ($stereo) {
+>>>     if ($stereo) {
     mva #$AF AUDC1
     mva #$50 AUDCTL
->>>   }
+>>>     }
     jmp play0
->>> }
+>>>   }
+>>> } else { die; }
 
 keydown
     lda KBCODE
@@ -174,42 +165,13 @@ keydown
 >>> }
 >>> if ($ram or $cart) {
     cmp #6 ; '+' Left Arrow
-    beq left
+    jeq prevbank
     cmp #7 ; '*' Right Arrow
-    beq right
+    jeq nextbank
     cmp #52 ; 'DEL'
-    beq reset
+    jeq initbank
 >>> }
     jmp donekey
-
-reset
->>> if ($ram) {
-    mva #0 setbank+1
-    jmp setbank
->>> } elsif ($cart) {
-jmp_initcart
-    jsr $FFFF ; e.g. init_thecart
-    jmp play
->>> }
-
-left
->>> if ($ram) {
-    dec setbank+1
-    dec setbank+1
-    spl:mva #0 setbank+1
-    jmp setbank
->>> } elsif ($cart) {
-    dec bank
-    dec bank
-    jmp jmp_nextbank
->>> }
-
-right
->>> if ($ram) {
-    jmp setbank
->>> } elsif ($cart) {
-    jmp jmp_nextbank
->>> }
 
 >>> if ($pcm44) {
 toggle
@@ -247,12 +209,100 @@ paudf3
     dta 13,5
 >>> }
 
+;========================================
+; bank
+;========================================
+>>> if ($ram) {
+prevbank
+    :2 dec bank
+nextbank
+    ldx bank
+    lda banks,x
+    bne nextbank2
+    mva #0 bank
+    lda banks+0
+nextbank2
+    sta PORTB
+    inc bank
+    jmp play
+initbank
+    mva #0 bank
+    rts
+>>> }
+
+>>> if ($xegs or $megacart) {
+prevbank
+    :2 dec bank
+nextbank
+    ldx bank
+    stx $D500
+    inx
+    stx bank
+    jmp play
+initbank
+    mva #0 bank
+    rts
+>>> }
+
+>>> if ($atarimax or $megamax) {
+prevbank
+    :2 dec bank
+nextbank
+    ldx bank
+    sta $D500,x
+    inx
+    stx bank
+    jmp play
+initbank
+    mva #0 bank
+    rts
+>>> }
+
+>>> if ($sic) {
+prevbank
+    :2 dec bank
+nextbank
+    lda bank
+    and #$1F
+    ora #$20
+    sta $D500
+    inc bank
+    jmp play
+initbank
+    mva #0 bank
+    rts
+>>> }
+
+>>> if ($thecart) {
+prevbank
+    lda $D5A0
+    php
+    dec $D5A0
+    plp
+    sne:dec $D5A1
+    jmp play
+nextbank
+    inc $D5A0
+    sne:inc $D5A1
+    jmp play
+initbank
+    mwa #1 $D5A0
+    rts
+>>> }
+
+;========================================
+; run
+;========================================
 >>> if ($ram) {
     run main
 >>> }
 
+;========================================
+; end of cart
+;========================================
 >>> if ($cart) {
 cart2ram_end
+    org <<<$cartwindow>>>-$2000+*
 cartstart
     ; copy code to ram
     mwa #cart2ram_start $80
