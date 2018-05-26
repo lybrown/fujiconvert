@@ -1,6 +1,12 @@
     icl 'hardware.asm'
-COVOX0 equ $D600
+COVOX0 equ $D600 ; TODO: Support adjusting Covox base address
 COVOX1 equ $D601
+window equ <<<$window>>>
+pages equ <<<$pages>>>
+dummy equ window+pages ; insure window and pages are marked used in .lab file
+NOP0 equ 0
+NOP equ $FE00
+lastkey equ $82
 
 >>> if ($cart) {
     opt f+h-
@@ -90,28 +96,20 @@ KHZ15 equ 1<<0
 >>>   }
 >>> }
 
->>> if ($ram) {
-extwindow equ $4000
-bank equ $80
-    ; init bank
-    mva #0 bank
->>> } elsif ($cart) {
+>>> if ($ram or $cart) {
 bank equ $80
     ; init bank
     mva #0 bank
 >>> }
 
-NOP0 equ 0
-NOP equ $FE00
-lastkey equ $82
-    sta lastkey
+    mva #0 lastkey
 
 >>> if ($pcm44) {
     jsr setpulse
 >>> }
 
 >>> sub sample {
->>>   ($page, $hpos) = @_;
+>>>   ($page, $hpos) = @_; # XXX DONT use "my" here. Messes up interp().
 >>>   # Disable waveform display for high frequencies
 >>>   $hpos = 0 if $stereo and $period < 49;
 >>>   if ($pcm44) {
@@ -195,7 +193,7 @@ continue ; called by loader
 >>>   if ($pwm) {
     mva #$AF AUDC1
     mva #$50 AUDCTL
-; XXX - Not needed as long as emulator doesn't touch POKEY #2
+; XXX - Not needed as long as emulator loader doesn't touch POKEY #2?
 ;>>>     if ($stereo) {
 ;    mva #$AF AUDC1+$10
 ;    mva #$50 AUDCTL+$10
