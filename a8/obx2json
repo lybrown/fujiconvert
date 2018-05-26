@@ -1,0 +1,56 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use Getopt::Long;
+use MIME::Base64;
+use JSON;
+
+my %args;
+
+sub usage {
+    die "Usage: obx2json [player.obx]+\n";
+}
+
+sub parse_labels {
+    my ($file) = @_;
+    open my $fh, $file or die "ERROR: Cannot open $file: $!\n";
+    my %labels;
+
+    # xasm 3.1.0
+    # Label table:
+    #         D208 ALLPOT
+    #         D201 AUDC1
+    #         D203 AUDC2
+    #         D205 AUDC3
+    while (<$fh>) {
+        if (/^ +(\S+)\s+(\S+)/) {
+            $labels{lc $2} = hex($1);
+        }
+    }
+    return \%labels;
+}
+
+sub parse_obx {
+    my ($file) = @_;
+    open my $fh, $file or die "ERROR: Cannot open $file: $!\n";
+    read $fh, my $data, 1<<20;
+    return encode_base64($data);
+}
+
+sub main {
+    GetOptions(\%args,
+    ) or usage();
+
+    my %players;
+    while (@ARGV) {
+        my $obx = shift @ARGV;
+        $obx =~ m/(\S+)\.obx/ or die "ERROR: Expecting obx file: $obx\n";
+        my $name = $1;
+        my $lab = "$name.lab";
+        $players{$name}{player} = parse_obx($obx);
+        $players{$name}{labels} = parse_labels($lab);
+    }
+    print JSON->new->utf8->pretty(1)->encode(\%players);
+}
+
+main();

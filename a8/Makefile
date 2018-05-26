@@ -1,4 +1,4 @@
-players.json: ram.obx obx2json
+players.json: enumerate obx2json
 	./obx2json $< $(out)
 
 det.run:
