@@ -4,7 +4,6 @@
     opt f+h-
     org <<<$window>>>
 cart2ram_start
-    and #$1F
     org r:$2000
 >>> } else {
     org $2000
@@ -102,50 +101,86 @@ lastkey equ $82
     jsr setpulse
 >>> }
 
-play0
-    ldy #0 ; 2 cycles
-play
-    ; pages 0 .. N-3
->>> for $page (0 .. $pages-3) {
+>>> sub sample {
+>>>   my ($page, $hpos) = @_;
+>>>   if ($pcm44) {
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva hi,x AUDC3 ; 8 cycles
     mva lo,x AUDC1 ; 8 cycles
-    ; 20 cycles
-    ; Pad to 37 cycles by adding 17 cycles of nop:
+>>>     if ($hpos) {
     stx HPOSP0 ; 4 cycles
-    rol NOP,x ; 7 cycles
-    rol NOP ; 6 cycles
+>>>     }
+>>>     if ($stereo) {
+    ldx <<<$window>>>+<<<$page+1>>>*$100,y ; 4 cycles
+    mva hi,x AUDC3+$10 ; 8 cycles
+    mva lo,x AUDC1+$10 ; 8 cycles
+>>>       if ($hpos) {
+    stx HPOSP1 ; 4 cycles
+>>>       }
+>>>     }
+>>>     return (20 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
+>>>   } elsif ($pwm) {
+    lda <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
+    sta AUDF1 ; 4 cycles
+    sta STIMER ; 4 cycles
+>>>     if ($hpos) {
+    stx HPOSP0 ; 4 cycles
+>>>     }
+>>>     if ($stereo) {
+    lda <<<$window>>>+<<<$page+1>>>*$100,y ; 4 cycles
+    sta AUDF1+$10 ; 4 cycles
+    sta STIMER+$10 ; 4 cycles
+>>>       if ($hpos) {
+    stx HPOSP1 ; 4 cycles
+>>>       }
+>>>     }
+>>>     return (12 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
+>>>   } elsif ($covox) {
+    lda <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
+    sta COVOX0 ; 4 cycles
+>>>     if ($hpos) {
+    stx HPOSP0 ; 4 cycles
+>>>     }
+>>>     if ($stereo) {
+    lda <<<$window>>>+<<<$page+1>>>*$100,y ; 4 cycles
+    sta COVOX1 ; 4 cycles
+>>>       if ($hpos) {
+    stx HPOSP1 ; 4 cycles
+>>>       }
+>>>     }
+>>>     return (8 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
+>>>   } elsif ($pcm4) {
+>>>     if ($stereo) {
+    ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
+    mva hi,x AUDC1 ; 8 cycles
+>>>       if ($hpos) {
+    adc #$70 ; 2 cycles
+    sta HPOSP1 ; 4 cycles
+>>>       }
+    mva lo,x AUDC1+$10 ; 8 cycles
+>>>       if ($hpos) {
+    adc #$90 ; 2 cycles
+    sta HPOSP1 ; 4 cycles
+>>>       }
+>>>       return 20 + ($hpos ? 12 : 0);
+>>>     }
+    ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
+    mva hi,x AUDC1 ; 8 cycles
+    adc #$80 ; 2 cycles
+    sta HPOSP0 ; 4 cycles
+>>>     nop($period - 12);
+    mva lo,x AUDC1 ; 8 cycles
+>>>     if ($hpos) {
+    adc #$80 ; 2 cycles
+    sta HPOSP0 ; 4 cycles
+>>>     }
+>>>     return 12 + ($hpos ? 6 : 0);
+>>>   }
 >>> }
-    ; page N-2
-    ldx <<<$window>>>+<<<$pages-2>>>*$100,y ; 4 cycles
-    mva hi,x AUDC3 ; 8 cycles
-    mva lo,x AUDC1 ; 8 cycles
-    ; 20 cycles
-    ; Pad to 37 cycles by adding 17 cycles of nop:
-    lda SKSTAT ; 4 cycles
-    cmp:sta lastkey ; 5 cycles
-    bcc keydown ; 2 cycles
-    lda NOP,x ; 4 cycles NOP
-    nop ; 2 cycles NOP
-    ; page N-1
-donekey
-    ldx <<<$window>>>+<<<$pages-1>>>*$100,y ; 4 cycles
-    mva hi,x AUDC3 ; 8 cycles
-    mva lo,x AUDC1 ; 8 cycles
-    iny ; 2 cycles
-branch
-    beq next ; 2 cycles +1 if taken same page
-    :2 rol NOP0 ; 5+5 cycles
-    jmp play ; 3 cycles
-next
-    ; ert [>next]!=[>branch]
 
-
->>> if ($ram or $cart) {
-    jmp nextbank
->>> } elsif ($emulator) {
-    rts
-continue
+>>> if ($emulator) {
+    rts ; return to loader
+continue ; called by loader
 >>>   if ($pwm) {
     mva #$AF AUDC1
     mva #$50 AUDCTL
@@ -153,8 +188,38 @@ continue
     mva #$AF AUDC1
     mva #$50 AUDCTL
 >>>     }
-    jmp play0
 >>>   }
+>>> }
+
+play0
+    ldy #0 ; 2 cycles
+play
+    ; samples 0 .. N-3
+>>> $pages_per_sample = ($stereo and ($pcm44 or $pwm or $covox)) ? 2 : 1;
+>>> for ($page = 0; $page < $pages-2*$pages_per_sample; $page += $pages_per_sample) {
+>>>   my $cycles = sample($page, 1);
+>>>   nop($period - $cycles);
+>>> }
+    ; sample N-2
+>>> my $cycles = sample($pages-2*$pages_per_sample, 0);
+    lda SKSTAT ; 4 cycles
+    cmp:sta lastkey ; 5 cycles
+    bcc keydown ; 2 cycles
+>>> nop($period - $cycles - 11);
+    ; sample N-1
+donekey
+>>> my $cycles = sample($pages-1*$pages_per_sample, 0);
+    iny ; 2 cycles
+branch
+    beq next ; 2 cycles +1 if taken same page
+>>> nop($period - $cycles - 7);
+    jmp play ; 3 cycles
+next
+    ; ert [>next]!=[>branch]
+>>> if ($ram or $cart) {
+    jmp nextbank
+>>> } elsif ($emulator) {
+    rts ; return to loader
 >>> } else { die; }
 
 keydown
@@ -165,11 +230,11 @@ keydown
 >>> }
 >>> if ($ram or $cart) {
     cmp #6 ; '+' Left Arrow
-    jeq prevbank
+    beq prevbank
     cmp #7 ; '*' Right Arrow
-    jeq nextbank
+    beq nextbank
     cmp #52 ; 'DEL'
-    jeq initbank
+    beq initbank
 >>> }
     jmp donekey
 
@@ -209,9 +274,55 @@ paudf3
     dta 13,5
 >>> }
 
+nop96
+    jsr nop48
+nop48
+    jsr nop24
+nop24
+    jsr nop12
+nop12
+    rts
+
+>>> sub nop {
+>>>   my ($cycles) = @_;
+>>>   while ($cycles > 96) {
+    jsr nop96
+>>>     $cycles -= 96;
+>>>   }
+>>>   while ($cycles > 48) {
+    jsr nop48
+>>>     $cycles -= 48;
+>>>   }
+>>>   while ($cycles > 24) {
+    jsr nop24
+>>>     $cycles -= 24;
+>>>   }
+>>>   while ($cycles > 12) {
+    jsr nop12
+>>>     $cycles -= 12;
+>>>   }
+>>>   while ($cycles > 7) {
+    rol NOP,x ; 7 cycles
+>>>     $cycles -= 7;
+>>>   }
+>>>   if ($cycles == 6) {
+    rol NOP ; 6 cycles
+>>>   } elsif ($cycles == 5) {
+    rol NOP0 ; 5 cycles
+>>>   } elsif ($cycles == 4) {
+    lda NOP ; 4 cycles
+>>>   } elsif ($cycles == 3) {
+    and NOP0 ; 3 cycles
+>>>   } elsif ($cycles == 2) {
+    nop ; 2 cycles
+>>>   }
+>>> }
+
+
 ;========================================
 ; bank
 ;========================================
+    ; <<<$media>>>
 >>> if ($ram) {
 prevbank
     :2 dec bank
@@ -228,9 +339,7 @@ nextbank2
 initbank
     mva #0 bank
     rts
->>> }
-
->>> if ($xegs or $megacart) {
+>>> } elsif ($xegs or $megacart) {
 prevbank
     :2 dec bank
 nextbank
@@ -242,9 +351,7 @@ nextbank
 initbank
     mva #0 bank
     rts
->>> }
-
->>> if ($atarimax or $megamax) {
+>>> } elsif ($atarimax or $megamax) {
 prevbank
     :2 dec bank
 nextbank
@@ -256,9 +363,7 @@ nextbank
 initbank
     mva #0 bank
     rts
->>> }
-
->>> if ($sic) {
+>>> } elsif ($sic) {
 prevbank
     :2 dec bank
 nextbank
@@ -271,9 +376,7 @@ nextbank
 initbank
     mva #0 bank
     rts
->>> }
-
->>> if ($thecart) {
+>>> } elsif ($thecart) {
 prevbank
     lda $D5A0
     php

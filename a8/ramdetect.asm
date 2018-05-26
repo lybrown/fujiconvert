@@ -5,7 +5,7 @@ dontuse
     org *+$100
 bankindex
     dta 0
-nextbank
+prepnextbank
     ldx bankindex
     mva banks,x PORTB
     inx
