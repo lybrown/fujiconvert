@@ -127,6 +127,12 @@ AtariMax
     type 41 - 128K
     type 42 - 1M
 
+MegaMax
+    $8000-BFFF - bank determined by accessing $D500+bank
+    Starts in bank 0?
+
+    type 61 - 2M
+
 SIC!
     $8000-BFFF - bank determined by writing $20+bank to $D500
     Starts in bank 0?
@@ -134,12 +140,6 @@ SIC!
     type 54 - 128K
     type 55 - 256K
     type 56 - 512K
-
-MegaMax
-    $8000-BFFF - bank determined by accessing $D500+bank
-    Starts in bank 0?
-
-    type 61 - 2M
 
 The!Cart
     $A000-BFFF - bank determined by writing bank word to $D5A0/1

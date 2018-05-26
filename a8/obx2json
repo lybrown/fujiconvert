@@ -34,7 +34,7 @@ sub parse_obx {
     my ($file) = @_;
     open my $fh, $file or die "ERROR: Cannot open $file: $!\n";
     read $fh, my $data, 1<<20;
-    return encode_base64($data);
+    return encode_base64($data, "");
 }
 
 sub main {

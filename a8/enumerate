@@ -40,9 +40,9 @@ sub main {
                     $lab =~ s/\.asm\.pl$/.lab/;
                     my $lst = $fn;
                     $lst =~ s/\.asm\.pl$/.lst/;
+                    warn "INFO: Assembling $asm...\n";
                     system "perl $fn > $asm";
                     system "xasm /t:$lab /l:$lst $asm";
-                    die;
 		}
 	    }
 	}

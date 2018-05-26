@@ -1,4 +1,6 @@
     icl 'hardware.asm'
+COVOX0 equ $D600
+COVOX1 equ $D601
 
 >>> if ($cart) {
     opt f+h-
@@ -417,9 +419,12 @@ nop12
 ; run
 ;========================================
     run main
->>> }
-
->>> if ($cart) {
+>>> } elsif ($emulator) {
+;========================================
+; ini
+;========================================
+    ini main
+>>> } elsif ($cart) {
 ;========================================
 ; end of cart
 ;========================================
@@ -448,4 +453,4 @@ null
     dta 0 ; no left cart  XXX should be 1 for 16K carts?
     dta 4 ; no DOS
     dta a(null) ; init
->>> }
+>>> } else { die; }
