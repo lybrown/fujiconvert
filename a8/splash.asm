@@ -13,16 +13,16 @@ splash
 wait
     lda SKSTAT
     and #4
-    beq continue
+    beq splashdone
     lda TRIG0
-    beq continue
+    beq splashdone
     lda CONSOL
     and #7
     cmp #7
-    bne continue
+    bne splashdone
     jmp wait
 
-continue
+splashdone
     rts
 
 dlist

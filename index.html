@@ -3,23 +3,51 @@
 .progress {
   width: 100%;
   background-color: #ddd;
+  border-radius: 3px;
 }
 
 .bar {
   width: 0%;
   height: 30px;
   background-color: #4CAF50;
+  border-radius: 3px;
+}
+
+/* https://www.pexels.com/blog/css-only-loaders/ */
+.busyBar {
+  width: 100%;
+  height: 30px;
+  border-radius: 3px;
+  background-image: 
+    repeating-linear-gradient(
+      -45deg,
+      #4CAF50,
+      #4CAF50 22px,
+      #ddd 20px,
+      #ddd 40px
+    );
+  background-size: 56px 56px;
+  animation: move .7s linear infinite;
+  visibility: hidden;
+}
+
+@keyframes move {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 56px 0;
+  }
 }
 
 .wheel {
-  border: 16px solid #f3f3f3;
+  border: 16px solid #ddd;
   border-radius: 50%;
-  border-top: 16px solid #3498db;
+  /* border-top: 16px solid #3498db; */
   width: 50px;
   height: 50px;
   -webkit-animation: spin 2s linear infinite;
   animation: spin 2s linear infinite;
-  visibility: hidden;
 }
 
 .divparent div {
@@ -61,6 +89,7 @@
     <input type="radio" name="method" value="pcm4+4" checked> PCM4+4<br>
     <input type="radio" name="method" value="pcm4"> PCM4<br>
     <input type="radio" name="method" value="pwm"> PWM<br>
+    <input type="radio" name="method" value="covox"> Covox<br>
 </div>
 <div>
     Channels:<br>
@@ -84,11 +113,13 @@
     Gain: <input type="text" name="gain" value="1.5"><br>
     Offset: <input type="text" name="offset" value="0"><br>
     Duration: <input type="text" name="duration" value="-1"><br>
+    Title: <input type="text" name="title" value=""><br>
+    Artist: <input type="text" name="artists" value=""><br>
 <div>
     Output Media:<br>
     <input type="radio" name="media" value="ram"> RAM XEX<br>
-    <input type="radio" name="media" value="ram"> Emulator Stream XEX<br>
-    <input type="radio" name="media" value="fat"> FAT player (flashjazzcat)<br>
+    <input type="radio" name="media" value="emulator"> Emulator Stream XEX<br>
+    <input type="radio" name="media" value="ide"> IDE player (flashjazzcat)<br>
     <input type="radio" name="media" value="thecart" checked> The!Cart<br>
     <input type="radio" name="media" value="megamax"> MegaMax<br>
     <input type="radio" name="media" value="megacart"> MegaCart<br>
@@ -96,18 +127,34 @@
     <input type="radio" name="media" value="xegs"> XEGS<br>
     <input type="radio" name="media" value="sic"> SIC!<br>
 </div>
+<div>
+    Max size:<br>
+    <select name="maxsize">
+    <option value="16K"> 16K<br>
+    <option value="80K"> 80K<br>
+    <option value="256K"> 256K<br>
+    <option value="512K"> 512K<br>
+    <option value="1M"> 1M<br>
+    <option value="2M"> 2M<br>
+    <option value="2M"> 4M<br>
+    <option value="32M"> 32M<br>
+    <option value="64M"> 64M<br>
+    <option value="128M" selected> 128M<br>
+    <option value="unlimited"> Unlimited<br>
+    </select>
+</div>
 </div>
 </form>
 
 </td>
 <td valign="top">
-<h3>Settings</h3>
-
-<p id="settingsText"></p>
-
 <h3>Select Input Media</h3>
 
 <input type="file" id="file-input" />
+
+<h3>Parameters</h3>
+
+<p id="settingsText"></p>
 
 <h3>Read</h3>
 
@@ -119,7 +166,10 @@
 
 <h3>Decode</h3>
 
-<div id="decodeWheel" class="wheel"></div>
+<div id="decodeBusyBack" class="progress">
+<div id="decodeBusy" class="busyBar">
+</div>
+</div>
 <pre id="decodeMessage"></pre>
 
 <h3>Convert</h3>
@@ -131,8 +181,11 @@
 
 <h3>Zip</h3>
 
-<div id="zipProgress" class="progress">
-<div id="zipBar" class="bar">
+<div id="zipBusyBack" class="progress">
+<div id="zipBusy" class="busyBar">
+</div>
+</div>
+
 </div>
 </div>
 

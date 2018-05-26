@@ -7,6 +7,31 @@ function getRadio(radio) {
   }
   return "NONE";
 }
+function getSelected(select) {
+  for (var i = 0; i < select.length; ++i) {
+    if (select[i].selected) {
+      return select[i].value;
+    }
+  }
+  return "NONE";
+}
+function bar(name, fraction) {
+  var bar = document.getElementById(name);
+  bar.style.width = (fraction * 100) + "%";
+}
+function busy(name, state) {
+  var busy = document.getElementById(name);
+  if (state == 0) {
+    busy.style.visibility = "hidden";
+    busy.parentNode.style["background-color"] = "#ddd";
+  } else if (state == 1) {
+    busy.style.visibility = "visible";
+    busy.style["background-color"] = "#0000";
+  } else if (state == 2) {
+    busy.style.visibility = "hidden";
+    busy.parentNode.style["background-color"] = "#4CAF50";
+  }
+}
 function getSettings() {
   var form = document.getElementById("settings");
   var settingsText = document.getElementById("settingsText");
@@ -28,6 +53,7 @@ function getSettings() {
     region: getRadio(form["region"]),
     frequency: getRadio(form["frequency"]),
     media: getRadio(form["media"]),
+    maxsize: getSelected(form["maxsize"]),
     gain: form["gain"].value,
     offset: form["offset"].value,
     duration: form["duration"].value,
@@ -53,36 +79,40 @@ function readSingleFile(e) {
 
   // Read as binary and offer download
   var binreader = new FileReader();
-  var readBar = document.getElementById("readBar");
-  var zipBar = document.getElementById("zipBar");
-  var convertBar = document.getElementById("convertBar");
-  var download = document.getElementById("download");
-  readBar.style.width = "0%";
-  zipBar.style.width = "0%";
-  convertBar.style.width = "0%";
-  download.innerText = "";
-  download.href = "";
+
+  // Reset indicators
+  bar("readBar", 0);
+  busy("decodeBusy", 0);
+  bar("convertBar", 0);
+  busy("zipBusy", 0);
+  var decodeMessage = document.getElementById("decodeMessage");
+  decodeMessage.innerText = "";
   var readMessage = document.getElementById("readMessage");
   readMessage.innerText = "";
+  var download = document.getElementById("download");
+  download.innerText = "";
+  download.href = "";
+
   binreader.onload = function(e) {
-    readBar.style.width = "100%";
+    bar("readBar", 1);
     var contents = e.target.result;
     file_to_a8(contents, settings, function(xex) {
       var xexname = file.name.replace(/\.[^\/.]+$/, "") + ".xex";
       var zipname = file.name.replace(/\.[^\/.]+$/, "") + ".zip";
       var zip = new JSZip();
       zip.file(xexname, xex);
+      busy("zipBusy", 1);
       zip.generateAsync({type: "blob", compression: "DEFLATE"},
         function updateCallback(metadata) {
           //console.log("zip: " + metadata.percent);
-          zipBar.style.width = metadata.percent + '%';
       }).then(function (blob) {
+        busy("zipBusy", 2);
         offerDownload(zipname, blob);
       });
     });
   };
   binreader.onprogress = function(event) {
-    readBar.style.width = (event.loaded * 100 / event.total) + "%";
+    bar("readBar", event.loaded / event.total);
   };
   binreader.onerror = function(e) {
     readMessage.innerText = "ReadError";
@@ -120,16 +150,12 @@ function header(start, length) {
 
 function file_to_a8(contents, settings, onConverted) {
   var c = new AudioContext();
-  var decodeWheel = document.getElementById("decodeWheel");
-  var decodeMessage = document.getElementById("decodeMessage");
-  decodeWheel.style.visibility = "visible";
-  decodeMessage.innerText = "";
+  busy("decodeBusy", 1);
   c.decodeAudioData(contents,function(buffer) {
-    decodeWheel.style.visibility = "hidden";
     myBuffer = buffer;
     var duration = settings.duration > 0 ?
         clamp(settings.duration, 0, buffer.duration) : buffer.duration;
-    var oc = new OfflineAudioContext(1, 15600*duration, 15600);
+    var oc = new OfflineAudioContext(1, settings.freq*duration, settings.freq);
     var source = oc.createBufferSource();
     var gainNode = oc.createGain();
     gainNode.gain.setValueAtTime(settings.gain, c.currentTime);
@@ -139,10 +165,11 @@ function file_to_a8(contents, settings, onConverted) {
     source.start(0, settings.offset, duration);
     oc.startRendering().then(function(renderedBuffer) {
       console.log("Rendering completed successfully");
+      busy("decodeBusy", 2);
       convert_to_xex(renderedBuffer, onConverted);
     });
   }, function(e) {
-    decodeWheel.style.visibility = "hidden";
+    busy("decodeBusy", 0);
     decodeMessage.innerText = "Decode Error: " + e;
   });
 }
@@ -162,8 +189,7 @@ function convert_to_xex(renderedBuffer, onConverted) {
     var xex = concatenate(Uint8Array, player_u8, ...parts, quiet);
     onConverted(xex);
   };
-  var bar = document.getElementById("convertBar");
-  bar.style.width = "0%";
+  bar("convertBar", 0);
   var loop = function() {
     var end = clamp(i + buflen, 0, data.length);
     var len = end - i;
@@ -179,12 +205,12 @@ function convert_to_xex(renderedBuffer, onConverted) {
     part.set(ini, j);
     parts.push(part);
     // update progress bar
-    bar.style.width = (i*100/data.length) + "%";
+    bar("convertBar", i/data.length);
     if (end < data.length) {
       i = i + buflen;
       setTimeout(loop, 0);
     } else {
-      bar.style.width = "100%";
+      bar("convertBar", 1);
       setTimeout(done, 0);
     }
   };
