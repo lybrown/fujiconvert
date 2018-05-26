@@ -1,7 +1,8 @@
     icl 'hardware.asm'
 
 >>> if ($cart) {
-    org <<<$cartwindow>>>
+    opt f+h-
+    org <<<$window>>>
 cart2ram_start
     and #$1F
     org r:$2000
@@ -87,7 +88,6 @@ bank equ $80
     ; init bank
     mva #0 bank
 >>> } elsif ($cart) {
-cartwindow equ <<<$cartwindow>>>
 bank equ $80
     ; init bank
     mva #0 bank
@@ -105,9 +105,9 @@ lastkey equ $82
 play0
     ldy #0 ; 2 cycles
 play
-    ; pages 0-61
->>> for $page (0 .. 61) {
-    ldx extwindow+<<<$page>>>*$100,y ; 4 cycles
+    ; pages 0 .. N-3
+>>> for $page (0 .. $pages-3) {
+    ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva hi,x AUDC3 ; 8 cycles
     mva lo,x AUDC1 ; 8 cycles
     ; 20 cycles
@@ -116,8 +116,8 @@ play
     rol NOP,x ; 7 cycles
     rol NOP ; 6 cycles
 >>> }
-    ; page 62
-    ldx extwindow+62*$100,y ; 4 cycles
+    ; page N-2
+    ldx <<<$window>>>+<<<$pages-2>>>*$100,y ; 4 cycles
     mva hi,x AUDC3 ; 8 cycles
     mva lo,x AUDC1 ; 8 cycles
     ; 20 cycles
@@ -127,9 +127,9 @@ play
     bcc keydown ; 2 cycles
     lda NOP,x ; 4 cycles NOP
     nop ; 2 cycles NOP
-    ; page 63
+    ; page N-1
 donekey
-    ldx extwindow+63*$100,y ; 4 cycles
+    ldx <<<$window>>>+<<<$pages-1>>>*$100,y ; 4 cycles
     mva hi,x AUDC3 ; 8 cycles
     mva lo,x AUDC1 ; 8 cycles
     iny ; 2 cycles
@@ -290,19 +290,19 @@ initbank
     rts
 >>> }
 
+>>> if ($ram) {
 ;========================================
 ; run
 ;========================================
->>> if ($ram) {
     run main
 >>> }
 
+>>> if ($cart) {
 ;========================================
 ; end of cart
 ;========================================
->>> if ($cart) {
 cart2ram_end
-    org <<<$cartwindow>>>-$2000+*
+    org <<<$window>>>+<<<$pages-1>>>*$100
 cartstart
     ; copy code to ram
     mwa #cart2ram_start $80
@@ -321,7 +321,7 @@ null
     rts
 
     ;========================================================
-    org $BFFA
+    org <<<$window>>>+<<<$pages>>>*$100-6
     dta a(cartstart) ; start
     dta 0 ; no left cart  XXX should be 1 for 16K carts?
     dta 4 ; no DOS

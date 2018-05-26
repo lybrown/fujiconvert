@@ -32,7 +32,7 @@ dlist
     dta $41,a(dlist)
 scr
     ;     0123456789012345678901234567890123456789
-    org *+40*10
+    :40*10 dta 0
 ;    dta d' Song:                                  '
 ;    dta d' Length:                                '
 ;    dta d' Playback method:                       '

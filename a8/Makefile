@@ -1,5 +1,6 @@
-players.json: enumerate obx2json
-	./obx2json $< $(out)
+players.json: player.asm.pl enumerate obx2json splash.asm ramdetect.asm
+	./enumerate
+	./obx2json player-*.obx $(out)
 
 det.run:
 simple.run:

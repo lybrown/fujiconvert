@@ -14,21 +14,35 @@ my %media = (
 );
 
 sub main {
+    my $player = `cat player.asm.pl`;
     for my $media (sort keys %media) {
         my $cart = $media =~ /ram|emulator/ ? 0 : 1;
 	for my $method (qw(pcm44 pcm4 pwm covox)) {
 	    for my $channels (qw(stereo mono)) {
 		for my $period (qw(34 37 48 105 210)) {
-		    print "\$$media=1; \$cart=$cart; \$$method=1; \$$channels=1; \$period=$period;";
+                    my $fn = "player-$media-$method-$channels-$period.asm.pl";
+                    open my $fh, ">$fn" or die "ERROR: Cannot open $fn: $!\n";
+		    print $fh "\$$media=1; \$cart=$cart; \$$method=1; \$$channels=1; \$period=$period;";
                     for my $var (sort keys %{$media{$media}}) {
                         my $val = $media{$media}{$var};
                         if ($val =~ /\$/) {
-                            print " \$$var='$media{$media}{$var}';";
+                            print $fh " \$$var='$media{$media}{$var}';";
                         } else {
-                            print " \$$var=$media{$media}{$var};";
+                            print $fh " \$$var=$media{$media}{$var};";
                         }
                     }
-                    print "\n";
+                    print $fh "\n";
+                    print $fh $player;
+                    close $fh;
+                    my $asm = $fn;
+                    $asm =~ s/\.pl$//;
+                    my $lab = $fn;
+                    $lab =~ s/\.asm\.pl$/.lab/;
+                    my $lst = $fn;
+                    $lst =~ s/\.asm\.pl$/.lst/;
+                    system "perl $fn > $asm";
+                    system "xasm /t:$lab /l:$lst $asm";
+                    exit 0;
 		}
 	    }
 	}
