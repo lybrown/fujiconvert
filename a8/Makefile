@@ -1,6 +1,10 @@
-players.json: player.asm.pl enumerate obx2json splash.asm ramdetect.asm
-	./enumerate
-	./obx2json player-*.obx $(out)
+players.json: player.asm.pl enumerate obx2json splash.asm ramdetect.asm hardware.asm
+	mkdir -p players
+	cp -f hardware.asm players
+	cp -f splash.asm players
+	cp -f ramdetect.asm players
+	./enumerate -media thecart
+	./obx2json players/player-*.obx $(out)
 
 det.run:
 simple.run:

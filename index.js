@@ -58,6 +58,13 @@ function getSettings() {
     offset: form["offset"].value,
     duration: form["duration"].value,
   };
+
+  // Constraints
+  if (settings.media == "ide") {
+    settings.method = "pcm4+4";
+    settings.channels = "mono";
+    settings.frequency = "15kHz";
+  }
   settings.period = period[settings.frequency];
   if (settings.channels == "stereo") {
     settings.period = clamp(settings.period, period["34kHz"], 999);
@@ -65,9 +72,12 @@ function getSettings() {
   if (settings.method == "pwm") {
     settings.period = clamp(settings.period, period["15kHz"], 999);
   }
+
+  // Show cosntrained settings
   settings.freq = cycles[settings.region] / settings.period;
   var pretty = JSON.stringify(settings, null, 4);
   settingsText.innerText = pretty.replace(/[{}]\n?/gm, "");
+
   return settings;
 }
 function readSingleFile(e) {
@@ -158,7 +168,8 @@ function file_to_a8(contents, settings, onConverted) {
     var oc = new OfflineAudioContext(1, settings.freq*duration, settings.freq);
     var source = oc.createBufferSource();
     var gainNode = oc.createGain();
-    gainNode.gain.setValueAtTime(settings.gain, c.currentTime);
+    // gainNode.gain.setValueAtTime(settings.gain, c.currentTime);
+    gainNode.gain.value = settings.gain;
     source.buffer = myBuffer;
     source.connect(gainNode);
     gainNode.connect(oc.destination);
@@ -200,7 +211,7 @@ function convert_to_xex(renderedBuffer, onConverted) {
       part[j] = audf;
     }
     for (;j < buflen + 4; ++j) {
-      part[j] = 0;
+      part[j] = 50;
     }
     part.set(ini, j);
     parts.push(part);

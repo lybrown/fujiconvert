@@ -44,9 +44,10 @@ sub main {
     my %players;
     while (@ARGV) {
         my $obx = shift @ARGV;
-        $obx =~ m/(\S+)\.obx/ or die "ERROR: Expecting obx file: $obx\n";
-        my $name = $1;
-        my $lab = "$name.lab";
+        $obx =~ m{(.*/)?(\S+)\.obx} or die "ERROR: Expecting obx file: $obx\n";
+        my $dir = $1;
+        my $name = $2;
+        my $lab = "$dir$name.lab";
         $players{$name}{player} = parse_obx($obx);
         $players{$name}{labels} = parse_labels($lab);
     }
