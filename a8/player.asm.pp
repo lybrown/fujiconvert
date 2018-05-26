@@ -84,11 +84,10 @@ KHZ15 equ 1<<0
 >>> } elsif ($pwm) {
     mva #$AF AUDC1
     mva #$50 AUDCTL
-; XXX Not needed because emulated loader doesn't touch POKEY #2?
-;>>>   if ($stereo) {
-;    mva #$AF AUDC1+$10
-;    mva #$50 AUDCTL+$10
-;>>>   }
+>>>   if ($stereo) {
+    mva #$AF AUDC1+$10
+    mva #$50 AUDCTL+$10
+>>>   }
 >>> }
 
 >>> if ($ram) {
@@ -113,7 +112,7 @@ lastkey equ $82
 
 >>> sub sample {
 >>>   ($page, $hpos) = @_;
->>>   # Disable waveform for high frequencies
+>>>   # Disable waveform display for high frequencies
 >>>   $hpos = 0 if $stereo and $period < 49;
 >>>   if ($pcm44) {
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
@@ -196,10 +195,11 @@ continue ; called by loader
 >>>   if ($pwm) {
     mva #$AF AUDC1
     mva #$50 AUDCTL
->>>     if ($stereo) {
-    mva #$AF AUDC1
-    mva #$50 AUDCTL
->>>     }
+; XXX - Not needed as long as emulator doesn't touch POKEY #2
+;>>>     if ($stereo) {
+;    mva #$AF AUDC1+$10
+;    mva #$50 AUDCTL+$10
+;>>>     }
 >>>   }
 >>> }
 
