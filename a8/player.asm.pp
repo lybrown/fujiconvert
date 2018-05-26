@@ -41,7 +41,14 @@ main
 
     ; graphics
     mva #$F COLPM0
+    mva #$8 COLPM1
+    mva #$4 COLPM2
     mva #$FF GRAFP0
+    sta GRAFP1
+    mva #1 GRAFP2
+    mva #0 HPOSP0
+    sta HPOSP1
+    sta HPOSP2
 
 >>> if ($covox) {
     ; init Covox
@@ -75,10 +82,11 @@ KHZ15 equ 1<<0
 >>> } elsif ($pwm) {
     mva #$AF AUDC1
     mva #$50 AUDCTL
->>>   if ($stereo) {
-    mva #$AF AUDC1
-    mva #$50 AUDCTL
->>>   }
+; XXX Not needed because emulated loader doesn't touch POKEY #2?
+;>>>   if ($stereo) {
+;    mva #$AF AUDC1+$10
+;    mva #$50 AUDCTL+$10
+;>>>   }
 >>> }
 
 >>> if ($ram) {
@@ -102,7 +110,9 @@ lastkey equ $82
 >>> }
 
 >>> sub sample {
->>>   my ($page, $hpos) = @_;
+>>>   ($page, $hpos) = @_;
+>>>   # Disable waveform for high frequencies
+>>>   $hpos = 0 if $stereo and $period < 49;
 >>>   if ($pcm44) {
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva hi,x AUDC3 ; 8 cycles
@@ -238,7 +248,91 @@ keydown
 >>> }
     jmp donekey
 
+;========================================
+; bank
+;========================================
+    ; <<<$media>>>
+>>> if ($ram) {
+prevbank
+    :2 dec bank
+nextbank
+    ldx bank
+    stx HPOSP2
+    lda banks,x
+    bne nextbank2
+    mva #0 bank
+    lda banks+0
+nextbank2
+    sta PORTB
+    inc bank
+    jmp play
+initbank
+    mva #0 bank
+    rts
+>>> } elsif ($xegs or $megacart) {
+prevbank
+    :2 dec bank
+nextbank
+    ldx bank
+    stx HPOSP2
+    stx $D500
+    inx
+    stx bank
+    jmp play
+initbank
+    mva #0 bank
+    rts
+>>> } elsif ($atarimax or $megamax) {
+prevbank
+    :2 dec bank
+nextbank
+    ldx bank
+    stx HPOSP2
+    sta $D500,x
+    inx
+    stx bank
+    jmp play
+initbank
+    mva #0 bank
+    rts
+>>> } elsif ($sic) {
+prevbank
+    :2 dec bank
+nextbank
+    lda bank
+    sta HPOSP2
+    and #$1F
+    ora #$20
+    sta $D500
+    inc bank
+    jmp play
+initbank
+    mva #0 bank
+    rts
+>>> } elsif ($thecart) {
+prevbank
+    lda $D5A0
+    sta HPOSP2
+    php
+    dec $D5A0
+    plp
+    sne:dec $D5A1
+    jmp play
+nextbank
+    mva $D5A0 HPOSP2
+    inc $D5A0
+    sne:inc $D5A1
+    jmp play
+initbank
+    mwa #1 $D5A0
+    rts
+>>> }
+
+
 >>> if ($pcm44) {
+;========================================
+; PCM4+4 Altirra/hardware toggle
+;========================================
 toggle
     jsr setpulse
     jmp donekey
@@ -316,81 +410,6 @@ nop12
 >>>   } elsif ($cycles == 2) {
     nop ; 2 cycles
 >>>   }
->>> }
-
-
-;========================================
-; bank
-;========================================
-    ; <<<$media>>>
->>> if ($ram) {
-prevbank
-    :2 dec bank
-nextbank
-    ldx bank
-    lda banks,x
-    bne nextbank2
-    mva #0 bank
-    lda banks+0
-nextbank2
-    sta PORTB
-    inc bank
-    jmp play
-initbank
-    mva #0 bank
-    rts
->>> } elsif ($xegs or $megacart) {
-prevbank
-    :2 dec bank
-nextbank
-    ldx bank
-    stx $D500
-    inx
-    stx bank
-    jmp play
-initbank
-    mva #0 bank
-    rts
->>> } elsif ($atarimax or $megamax) {
-prevbank
-    :2 dec bank
-nextbank
-    ldx bank
-    sta $D500,x
-    inx
-    stx bank
-    jmp play
-initbank
-    mva #0 bank
-    rts
->>> } elsif ($sic) {
-prevbank
-    :2 dec bank
-nextbank
-    lda bank
-    and #$1F
-    ora #$20
-    sta $D500
-    inc bank
-    jmp play
-initbank
-    mva #0 bank
-    rts
->>> } elsif ($thecart) {
-prevbank
-    lda $D5A0
-    php
-    dec $D5A0
-    plp
-    sne:dec $D5A1
-    jmp play
-nextbank
-    inc $D5A0
-    sne:inc $D5A1
-    jmp play
-initbank
-    mwa #1 $D5A0
-    rts
 >>> }
 
 >>> if ($ram) {
