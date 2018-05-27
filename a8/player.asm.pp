@@ -137,6 +137,7 @@ bank equ $80
     sta AUDF1 ; 4 cycles
     sta STIMER ; 4 cycles
 >>>     if ($hpos) {
+    adc #$7F-50-<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP0 ; 4 cycles
 >>>     }
 >>>     if ($stereo) {
@@ -144,10 +145,11 @@ bank equ $80
     sta AUDF1+$10 ; 4 cycles
     sta STIMER+$10 ; 4 cycles
 >>>       if ($hpos) {
+    adc #$7F-50+<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP1 ; 4 cycles
 >>>       }
 >>>     }
->>>     return (12 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
+>>>     return (12 + ($hpos ? 6 : 0)) * ($stereo ? 2 : 1);
 >>>   } elsif ($covox) {
     lda <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     sta COVOX0 ; 4 cycles
@@ -383,6 +385,8 @@ nop12
 
 >>> sub nop {
 >>>   my ($cycles) = @_;
+>>>   ++$nopcount;
+>>>   $nopsum += $cycles;
 >>>   while ($cycles > 96) {
     jsr nop96
 >>>     $cycles -= 96;
@@ -414,6 +418,11 @@ nop12
 >>>   } elsif ($cycles == 2) {
     nop ; 2 cycles
 >>>   }
+>>> }
+
+>>> if ($nopsum / $nopcount < -2) {
+; mark as slow player if average sync is missing by more than 2 cycles
+slowplayer equ 1
 >>> }
 
 >>> if ($ram) {
