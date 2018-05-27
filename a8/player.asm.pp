@@ -89,9 +89,11 @@ KHZ15 equ 1<<0
 >>>   }
 >>> } elsif ($pwm) {
     mva #$AF AUDC1
+    mva #$FF AUDF2
     mva #$50 AUDCTL
 >>>   if ($stereo) {
     mva #$AF AUDC1+$10
+    mva #$FF AUDF2+$10
     mva #$50 AUDCTL+$10
 >>>   }
 >>> }
@@ -111,7 +113,9 @@ bank equ $80
 >>> sub sample {
 >>>   ($page, $hpos) = @_; # XXX DONT use "my" here. Messes up interp().
 >>>   # Disable waveform display for high frequencies
->>>   $hpos = 0 if $stereo and $period < 49;
+>>>   $hpos = 0 if $stereo and $period < 49 or $period < 37;
+>>>   # There's always enough time for hpos when the period is >= 105
+>>>   $hpos = 1 if $period >= 105;
 >>>   if ($pcm44) {
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva hi,x AUDC3 ; 8 cycles
@@ -133,14 +137,14 @@ bank equ $80
     sta AUDF1 ; 4 cycles
     sta STIMER ; 4 cycles
 >>>     if ($hpos) {
-    stx HPOSP0 ; 4 cycles
+    sta HPOSP0 ; 4 cycles
 >>>     }
 >>>     if ($stereo) {
     lda <<<$window>>>+<<<$page+1>>>*$100,y ; 4 cycles
     sta AUDF1+$10 ; 4 cycles
     sta STIMER+$10 ; 4 cycles
 >>>       if ($hpos) {
-    stx HPOSP1 ; 4 cycles
+    sta HPOSP1 ; 4 cycles
 >>>       }
 >>>     }
 >>>     return (12 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
@@ -148,13 +152,13 @@ bank equ $80
     lda <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     sta COVOX0 ; 4 cycles
 >>>     if ($hpos) {
-    stx HPOSP0 ; 4 cycles
+    sta HPOSP0 ; 4 cycles
 >>>     }
 >>>     if ($stereo) {
     lda <<<$window>>>+<<<$page+1>>>*$100,y ; 4 cycles
     sta COVOX1 ; 4 cycles
 >>>       if ($hpos) {
-    stx HPOSP1 ; 4 cycles
+    sta HPOSP1 ; 4 cycles
 >>>       }
 >>>     }
 >>>     return (8 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
@@ -424,10 +428,7 @@ quiet
     sta:rpl AUDF1,x-
     jmp *
 dummyquiet equ quiet
-;========================================
-; ini
-;========================================
-    ini main
+    ; ini will be added by javascript
 >>> } elsif ($cart) {
 ;========================================
 ; end of cart

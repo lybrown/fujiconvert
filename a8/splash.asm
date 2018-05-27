@@ -26,13 +26,13 @@ splashdone
     rts
 
 dlist
-    :10 dta $70
+    :6 dta $70
     dta $42,a(scr)
-    :9 dta 2
+    :19 dta 2
     dta $41,a(dlist)
 scr
     ;     0123456789012345678901234567890123456789
-    :40*10 dta 0
+    :40*20 dta 0
 ;    dta d' Song:                                  '
 ;    dta d' Length:                                '
 ;    dta d' Playback method:                       '
