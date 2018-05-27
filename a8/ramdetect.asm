@@ -1,4 +1,4 @@
-window equ $4000
+extwindow equ $4000
 
 banks
 dontuse
@@ -28,7 +28,7 @@ detectram
     lda #$5A
 l1
     stx PORTB
-    sta window
+    sta extwindow
     :2 inx
     bne l1
     ; store 5A in address zero to detect RAMBO 256K
@@ -42,7 +42,7 @@ l2
 
     ; write A5 into bank X
     stx PORTB
-    mva #$A5 window
+    mva #$A5 extwindow
     ; if address 0 contains A5 then mark as RAMBO 256K main mem alias
     cmp 0
     bne c0
@@ -58,14 +58,14 @@ l3
     sty PORTB
     ; if this bank contains A5 then mark as not unique
     lda #$A5
-    cmp window
+    cmp extwindow
     sne:sta dontuse,y
     :2 iny
     bne l3
 
     ; write 5A back into bank X
     stx PORTB
-    mvy #$5A window
+    mvy #$5A extwindow
 
 c1
     :2 inx

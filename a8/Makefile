@@ -3,7 +3,8 @@ players.json: player.asm.pl enumerate obx2json splash.asm ramdetect.asm hardware
 	cp -f hardware.asm players
 	cp -f splash.asm players
 	cp -f ramdetect.asm players
-	./enumerate -media thecart
+	#./enumerate -media thecart
+	./enumerate
 	./obx2json players/player-*.obx $(out)
 
 det.run:

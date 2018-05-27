@@ -32,6 +32,10 @@ function busy(name, state) {
     busy.parentNode.style["background-color"] = "#4CAF50";
   }
 }
+function text(name, msg) {
+  var message = document.getElementById(name);
+  message.innerText = msg;
+}
 function getSettings() {
   var form = document.getElementById("settings");
   var settingsText = document.getElementById("settingsText");
@@ -61,7 +65,7 @@ function getSettings() {
 
   // Constraints
   if (settings.media == "ide") {
-    settings.method = "pcm4+4";
+    settings.method = "pcm44";
     settings.channels = "mono";
     settings.frequency = "15kHz";
   }
@@ -86,6 +90,7 @@ function readSingleFile(e) {
     return;
   }
   var settings = getSettings();
+  settings.filename = file.name;
 
   // Read as binary and offer download
   var binreader = new FileReader();
@@ -95,10 +100,9 @@ function readSingleFile(e) {
   busy("decodeBusy", 0);
   bar("convertBar", 0);
   busy("zipBusy", 0);
-  var decodeMessage = document.getElementById("decodeMessage");
-  decodeMessage.innerText = "";
-  var readMessage = document.getElementById("readMessage");
-  readMessage.innerText = "";
+  text("decodeMessage", "");
+  text("convertMessage", "");
+  text("readMessage", "");
   var download = document.getElementById("download");
   download.innerText = "";
   download.href = "";
@@ -106,26 +110,13 @@ function readSingleFile(e) {
   binreader.onload = function(e) {
     bar("readBar", 1);
     var contents = e.target.result;
-    file_to_a8(contents, settings, function(xex) {
-      var xexname = file.name.replace(/\.[^\/.]+$/, "") + ".xex";
-      var zipname = file.name.replace(/\.[^\/.]+$/, "") + ".zip";
-      var zip = new JSZip();
-      zip.file(xexname, xex);
-      busy("zipBusy", 1);
-      zip.generateAsync({type: "blob", compression: "DEFLATE"},
-        function updateCallback(metadata) {
-          //console.log("zip: " + metadata.percent);
-      }).then(function (blob) {
-        busy("zipBusy", 2);
-        offerDownload(zipname, blob);
-      });
-    });
+    decode(contents, settings);
   };
   binreader.onprogress = function(event) {
     bar("readBar", event.loaded / event.total);
   };
   binreader.onerror = function(e) {
-    readMessage.innerText = "ReadError";
+    text("readMessage", "ReadError");
   };
   binreader.readAsArrayBuffer(file);
 }
@@ -158,7 +149,7 @@ function header(start, length) {
   return [start & 0xFF, start >> 8, end & 0xFF, end >> 8];
 }
 
-function file_to_a8(contents, settings, onConverted) {
+function decode(contents, settings) {
   var c = new AudioContext();
   busy("decodeBusy", 1);
   c.decodeAudioData(contents,function(buffer) {
@@ -177,55 +168,88 @@ function file_to_a8(contents, settings, onConverted) {
     oc.startRendering().then(function(renderedBuffer) {
       console.log("Rendering completed successfully");
       busy("decodeBusy", 2);
-      convert_to_xex(renderedBuffer, onConverted);
+      convert(renderedBuffer, settings);
     });
   }, function(e) {
     busy("decodeBusy", 0);
-    decodeMessage.innerText = "Decode Error: " + e;
+    text("decodeMessage", "Decode Error: " + e);
   });
 }
 
-function convert_to_xex(renderedBuffer, onConverted) {
-  var ini = [0xE2, 0x02, 0xE3, 0x02, 0x30, 0x03];
-  var buf = 0x400;
-  var bufend = 0xC000;
-  var buflen = bufend - buf;
-  var data = renderedBuffer.getChannelData(0);
-  var parts = [];
-  var i = 0;
-  var done = function() {
-    var player_b64 = "//8AA3YDeKkAjQ7SjQ7UjQDUqf+NDdCpD40S0KlQjQjSqQCNA9KpAI0F0qkAjQfSqf+NAtJgqa+NAdKpUI0I0qDArQAEjQrUjQDSjQnSGGlEjQDQ7j0D0OnuPgPMPgPQ4akAjT0DqQSNPgNgqQCNAdKNA9KNBdKNB9JMdAPiAuMCAAM=";
-    var player_u8 = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
-    var quiet = new Uint8Array([0xE2, 0x02, 0xE3, 0x02, 0x66, 0x03]);
-    var xex = concatenate(Uint8Array, player_u8, ...parts, quiet);
-    onConverted(xex);
-  };
-  bar("convertBar", 0);
-  var loop = function() {
-    var end = clamp(i + buflen, 0, data.length);
-    var len = end - i;
-    var part = new Uint8Array(4 + buflen + 6);
-    part.set(header(buf, buflen));
-    for (j = 4, k = i; j < len + 4; ++j, ++k) {
-      var audf = clamp(lerp(data[k], -1, 1, 0, 101), 0, 101);
-      part[j] = audf;
-    }
-    for (;j < buflen + 4; ++j) {
-      part[j] = 50;
-    }
-    part.set(ini, j);
-    parts.push(part);
-    // update progress bar
-    bar("convertBar", i/data.length);
-    if (end < data.length) {
-      i = i + buflen;
-      setTimeout(loop, 0);
-    } else {
-      bar("convertBar", 1);
-      setTimeout(done, 0);
-    }
-  };
-  loop();
+function convert(renderedBuffer, settings) {
+  var player_name = "player-" +
+    settings.media + "-" +
+    settings.method + "-" +
+    settings.channels + "-" +
+    settings.period;
+  console.log("player_name: " + player_name);
+  if (!players[player_name]) {
+    text("convertMessage", "ERROR: Unsupported player: " + player_name);
+  }
+  var player_bin = players[player_name].player;
+  var player_labels = players[player_name].labels;
+  if (player_labels.cartstart) {
+  } else if (settings.media == "ram") {
+  } else if (settings.media == "emulator") {
+    var cont = player_labels["continue"];
+    var ini = [0xE2, 0x02, 0xE3, 0x02, cont && 0xFF, cont >> 8];
+    var buf = settings["window"];
+    var buflen = 0x100 * settings.pages;
+    var bufend = buf + buflen;
+    var data = renderedBuffer.getChannelData(0);
+    var parts = [];
+    var i = 0;
+    var done = function() {
+      //var player_b64 = "//8AA3YDeKkAjQ7SjQ7UjQDUqf+NDdCpD40S0KlQjQjSqQCNA9KpAI0F0qkAjQfSqf+NAtJgqa+NAdKpUI0I0qDArQAEjQrUjQDSjQnSGGlEjQDQ7j0D0OnuPgPMPgPQ4akAjT0DqQSNPgNgqQCNAdKNA9KNBdKNB9JMdAPiAuMCAAM=";
+      var player_b64 = player_bin;
+      var player_bin = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
+      var quiet = player_labels.quiet;
+      var quietini = new Uint8Array([0xE2, 0x02, 0xE3, 0x02, quiet && 0xFF, quiet >> 8]);
+      var xex = concatenate(Uint8Array, player_u8, ...parts, quiet);
+      zip_and_offer(xex, settings);
+    };
+    bar("convertBar", 0);
+    var loop = function() {
+      var end = clamp(i + buflen, 0, data.length);
+      var len = end - i;
+      var part = new Uint8Array(4 + buflen + 6);
+      part.set(header(buf, buflen));
+      for (j = 4, k = i; j < len + 4; ++j, ++k) {
+        var audf = clamp(lerp(data[k], -1, 1, 0, 101), 0, 101);
+        part[j] = audf;
+      }
+      for (;j < buflen + 4; ++j) {
+        part[j] = 50;
+      }
+      part.set(ini, j);
+      parts.push(part);
+      // update progress bar
+      bar("convertBar", i/data.length);
+      if (end < data.length) {
+        i = i + buflen;
+        setTimeout(loop, 0);
+      } else {
+        bar("convertBar", 1);
+        setTimeout(done, 0);
+      }
+    };
+    loop();
+  }
+}
+
+function zip_and_offer(xex, settings) {
+  var xexname = settings.filename.replace(/\.[^\/.]+$/, "") + ".xex";
+  var zipname = settings.filename.replace(/\.[^\/.]+$/, "") + ".zip";
+  var zip = new JSZip();
+  zip.file(xexname, xex);
+  busy("zipBusy", 1);
+  zip.generateAsync({type: "blob", compression: "DEFLATE"},
+    function updateCallback(metadata) {
+      //console.log("zip: " + metadata.percent);
+  }).then(function (blob) {
+    busy("zipBusy", 2);
+    offerDownload(zipname, blob);
+  });
 }
 
 function offerDownload(name, blob) {

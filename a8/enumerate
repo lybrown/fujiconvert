@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 use Getopt::Long;
+use Safe;
 
 my %args;
 
@@ -43,14 +44,16 @@ sub main {
         "channels=s@" => \&set,
         "period=s@" => \&set,
     ) or usage();
+    my @targets;
     my $player = `cat player.asm.pl`;
+    chdir "players";
     for my $media (sort @{$args{media}}) {
         my $cart = $media =~ /ram|emulator/ ? 0 : 1;
 	for my $method (sort @{$args{method}}) {
 	    for my $channels (sort @{$args{channels}}) {
 		for my $period (reverse @{$args{period}}) {
                     my $fn = "player-$media-$method-$channels-$period.asm.pl";
-                    open my $fh, ">players/$fn" or die "ERROR: Cannot open $fn: $!\n";
+                    open my $fh, ">$fn" or die "ERROR: Cannot open $fn: $!\n";
 		    print $fh "\$media='$media'; \$$media=1; \$cart=$cart; \$$method=1; \$$channels=1; \$period=$period;";
                     for my $var (sort keys %{$media{$media}}) {
                         my $val = $media{$media}{$var};
@@ -69,13 +72,22 @@ sub main {
                     $lab =~ s/\.asm\.pl$/.lab/;
                     my $lst = $fn;
                     $lst =~ s/\.asm\.pl$/.lst/;
-                    warn "INFO: Assembling $asm...\n";
-                    system "cd players; perl $fn > $asm && " .
-                        "xasm /t:$lab /l:$lst $asm";
+                    my $obx = $fn;
+                    $obx =~ s/\.asm\.pl$/.obx/;
+                    warn "INFO: Generating $asm...\n";
+                    #system "cd players; perl $fn > $asm && " .
+                    #    "xasm /t:$lab /l:$lst $asm";
+                    my $c = new Safe;
+                    $c->reval('open STDOUT, ">$asm" or die "ERROR: Cannot open $asm: $!\n";');
+                    $c->rdo("./$fn");
+                    push @targets, $obx;
 		}
 	    }
 	}
     }
+    warn "INFO: Assembling...\n";
+    system("make -f ../Makefile -j12 @targets");
+    warn "INFO: Done\n";
 }
 
 main();
