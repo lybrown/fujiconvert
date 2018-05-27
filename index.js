@@ -176,6 +176,25 @@ function decode(contents, settings) {
   });
 }
 
+function splash(rom, settings, labels) {
+  //             0123456789012345678901234567890123456789
+  var text;
+  text = text + " FujiConvert                            ";
+  text = text + "                                        ";
+  text = text + "                                        ";
+  text = text + "                                        ";
+  text = text + "                                        ";
+
+  var text_u8 = Uint8Array.from(text, function(s) {
+    var c = s.charCodeAt(0);
+    return
+      c < 32 ? c + 64 :
+      c < 96 ? c - 32 :
+      c;
+  });
+  return text_u8;
+}
+
 function convert(renderedBuffer, settings) {
   var player_name = "player-" +
     settings.media + "-" +
@@ -193,19 +212,22 @@ function convert(renderedBuffer, settings) {
   } else if (settings.media == "emulator") {
     var cont = player_labels["continue"];
     var ini = [0xE2, 0x02, 0xE3, 0x02, cont && 0xFF, cont >> 8];
-    var buf = settings["window"];
-    var buflen = 0x100 * settings.pages;
-    var bufend = buf + buflen;
+    var buf = player_labels["window"];
+    var buflen = 0x100 * player_labels.pages;
+    console.log("buflen: " + buflen + " buf: " + buf);
     var data = renderedBuffer.getChannelData(0);
     var parts = [];
     var i = 0;
     var done = function() {
       //var player_b64 = "//8AA3YDeKkAjQ7SjQ7UjQDUqf+NDdCpD40S0KlQjQjSqQCNA9KpAI0F0qkAjQfSqf+NAtJgqa+NAdKpUI0I0qDArQAEjQrUjQDSjQnSGGlEjQDQ7j0D0OnuPgPMPgPQ4akAjT0DqQSNPgNgqQCNAdKNA9KNBdKNB9JMdAPiAuMCAAM=";
-      var player_b64 = player_bin;
-      var player_bin = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
+      //var player_b64 = player_bin;
+      var player_b64 = players[player_name].player;
+      var player_u8 = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
+      var shead = header(player_labels.scr, player_labels.scrlen);
+      var stext = splash(settings, player_labels);
       var quiet = player_labels.quiet;
       var quietini = new Uint8Array([0xE2, 0x02, 0xE3, 0x02, quiet && 0xFF, quiet >> 8]);
-      var xex = concatenate(Uint8Array, player_u8, ...parts, quiet);
+      var xex = concatenate(Uint8Array, player_u8, ...parts, quietini);
       zip_and_offer(xex, settings);
     };
     bar("convertBar", 0);

@@ -43,3 +43,4 @@ scr
 ;    dta d' > - Fast Forward                       '
 ;    dta d' DEL - Play from start                  '
 ;    dta d' A - Toggle between Altirra/hardware    '
+scrlen equ *-scr
