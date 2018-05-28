@@ -133,20 +133,23 @@ bank equ $80
 >>>     }
 >>>     return (20 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
 >>>   } elsif ($pwm) {
+>>>     $maxhalf = ($period - 4) >> 1;
+>>>     for (0 .. int(($period-1) / 105)) {
     lda <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     sta AUDF1 ; 4 cycles
     sta STIMER ; 4 cycles
->>>     if ($hpos) {
-    adc #$7F-50-<<<$stereo ? 30 : 0>>> ; 2 cycles
+>>>       if ($hpos) {
+    adc #$7F-<<<$maxhalf>>>-<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP0 ; 4 cycles
->>>     }
->>>     if ($stereo) {
+>>>       }
+>>>       if ($stereo) {
     lda <<<$window>>>+<<<$page+1>>>*$100,y ; 4 cycles
     sta AUDF1+$10 ; 4 cycles
     sta STIMER+$10 ; 4 cycles
->>>       if ($hpos) {
-    adc #$7F-50+<<<$stereo ? 30 : 0>>> ; 2 cycles
+>>>         if ($hpos) {
+    adc #$7F-<<<$maxhalf>>>+<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP1 ; 4 cycles
+>>>         }
 >>>       }
 >>>     }
 >>>     return (12 + ($hpos ? 6 : 0)) * ($stereo ? 2 : 1);
@@ -200,10 +203,10 @@ continue ; called by loader
     mva #$AF AUDC1
     mva #$50 AUDCTL
 ; XXX - Not needed as long as emulator loader doesn't touch POKEY #2?
-;>>>     if ($stereo) {
-;    mva #$AF AUDC1+$10
-;    mva #$50 AUDCTL+$10
-;>>>     }
+>>>     if ($stereo) {
+    mva #$AF AUDC1+$10
+    mva #$50 AUDCTL+$10
+>>>     }
 >>>   }
 >>> }
 
@@ -212,23 +215,23 @@ play0
 play
     ; samples 0 .. N-3
 >>> $pages_per_sample = ($stereo and ($pcm44 or $pwm or $covox)) ? 2 : 1;
->>> for ($page = 0; $page < $pages-2*$pages_per_sample; $page += $pages_per_sample) {
+>>> for ($page = 0, $i = 0; $page < $pages-2*$pages_per_sample; $page += $pages_per_sample, ++$i) {
 >>>   my $cycles = sample($page, 1);
->>>   nop($period - $cycles);
+>>>   nop($period - $cycles + ($pwm && $period == 52 && ($i&1)));
 >>> }
     ; sample N-2
 >>> my $cycles = sample($pages-2*$pages_per_sample, 0);
     lda SKSTAT ; 4 cycles
-    cmp:sta lastkey ; 5 cycles
+    cmp:sta lastkey ; 6 cycles
     bcc keydown ; 2 cycles
->>> nop($period - $cycles - 11);
+>>> nop($period - $cycles - 12);
     ; sample N-1
 donekey
 >>> my $cycles = sample($pages-1*$pages_per_sample, 0);
     iny ; 2 cycles
 branch
     beq next ; 2 cycles +1 if taken same page
->>> nop($period - $cycles - 7);
+>>> nop($period - $cycles - 7 + ($pwm && $period == 52));
     jmp play ; 3 cycles
 next
     ; ert [>next]!=[>branch]

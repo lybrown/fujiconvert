@@ -48,6 +48,7 @@ function getSettings() {
     "48kHz": 34,
     "44kHz": 37,
     "34kHz": 48,
+    "31kHz": 52,
     "15kHz": 105,
     "8kHz": 210,
   };
@@ -76,7 +77,7 @@ function getSettings() {
     settings.period = clamp(settings.period, period["34kHz"], 999);
   }
   if (settings.method == "pwm") {
-    settings.period = clamp(settings.period, period["15kHz"], 999);
+    settings.period = clamp(settings.period, period["31kHz"], 999);
   }
 
   // Show cosntrained settings
@@ -154,7 +155,8 @@ function decode(contents, settings) {
     var duration = settings.duration > 0 ?
         clamp(settings.duration, 0, buffer.duration) : buffer.duration;
     settings.duration = duration;
-    var oc = new OfflineAudioContext(1, settings.freq*duration, settings.freq);
+    var channels = settings.channels == "stereo" ? 2 : 1;
+    var oc = new OfflineAudioContext(channels, settings.freq*duration, settings.freq);
     var source = oc.createBufferSource();
     var gainNode = oc.createGain();
     // gainNode.gain.setValueAtTime(settings.gain, c.currentTime);
@@ -251,6 +253,7 @@ function convert(renderedBuffer, settings) {
   }
   var player_bin = players[player_name].player;
   var labels = players[player_name].labels;
+  var stereo = settings.channels == "stereo";
   if (labels.cartstart) {
   } else if (settings.media == "ram") {
   } else if (settings.media == "emulator") {
@@ -259,6 +262,7 @@ function convert(renderedBuffer, settings) {
     var buflen = 0x100 * labels.pages;
     console.log("buflen: " + buflen + " buf: " + buf);
     var data = renderedBuffer.getChannelData(0);
+    var data2 = stereo ? renderedBuffer.getChannelData(1) : undefined;
     var parts = [];
     var done = function() {
       var player_b64 = players[player_name].player;
@@ -277,31 +281,35 @@ function convert(renderedBuffer, settings) {
       );
       zip_and_offer(xex, settings);
     };
-    bar("convertBar", 0);
-    var i = 0; // segment starting index into source data
+    bar("convertBar", 0); // GUI: 0% progress
+    var max = settings.method == "pwm" ?
+      (settings.period == 52 ? 48 : 101) : 255;
+    var maxhalf = max/2;
+    var i = 0; // source index
     var loop = function() {
-      var j; // running index into source data
       var k; // page offset
-      var l; // running index into destination data
-      var end = clamp(i + buflen, 0, data.length);
-      var len = end - i;
-      var part = new Uint8Array(4 + buflen + 6);
+      var l; // destination index
+      var part = new Uint8Array(4 + buflen + 6); // data segment, ini segment
       part.set(header(buf, buflen));
-      for (k = 0, j = i; k < 0x100; ++k) {
-        for (l = k + 4; l < buflen + 4; l+=0x100, ++j) {
-          var jfix = j < data.length ? j : data.length-1;
-          part[l] = clamp(lerp(data[jfix], -1, 1, 0, 101), 0, 101);
+      for (k = 0; k < 0x100; ++k) {
+        for (l = k + 4; l < buflen + 4; l+=0x100, ++i) {
+          var ifix = i < data.length ? i : data.length-1;
+          if (stereo) {
+            part[l] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+            l+=0x100;
+            part[l] = clamp(data2[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+          } else {
+            part[l] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+          }
         }
       }
-      part.set(contini, l-0xFF);
-      parts.push(part);
-      // update progress bar
-      bar("convertBar", i/data.length);
-      if (end < data.length) {
-        i = i + buflen;
+      part.set(contini, l-0xFF); // ini
+      parts.push(part); // part done
+      bar("convertBar", i/data.length); // GUI: progress
+      if (i < data.length) {
         setTimeout(loop, 0);
       } else {
-        bar("convertBar", 1);
+        bar("convertBar", 1); // GUI: 100% progress
         setTimeout(done, 0);
       }
     };
