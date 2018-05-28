@@ -180,24 +180,24 @@ bank equ $80 ; use for progress indicator
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva hi,x AUDC1 ; 8 cycles
 >>>       if ($hpos) {
-    adc #$70 ; 2 cycles
+    adc #$7F-<<<$maxhalf>>>-<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP1 ; 4 cycles
 >>>       }
     mva lo,x AUDC1+$10 ; 8 cycles
 >>>       if ($hpos) {
-    adc #$90 ; 2 cycles
+    adc #$7F-<<<$maxhalf>>>+<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP1 ; 4 cycles
 >>>       }
 >>>       return 20 + ($hpos ? 12 : 0);
 >>>     }
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva hi,x AUDC1 ; 8 cycles
-    adc #$80 ; 2 cycles
+    adc #$7F-<<<$maxhalf>>>-<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP0 ; 4 cycles
 >>>     nop($period - 12);
     mva lo,x AUDC1 ; 8 cycles
 >>>     if ($hpos) {
-    adc #$80 ; 2 cycles
+    adc #$7F-<<<$maxhalf>>>+<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP0 ; 4 cycles
 >>>     }
 >>>     return 12 + ($hpos ? 6 : 0);
@@ -370,6 +370,10 @@ toggle
     jmp donekey
 
 setpulse
+    mva #[FAST1|FAST3|HI13] AUDCTL
+>>> if ($stereo) {
+    mva #[FAST1|FAST3|HI13] AUDCTL+$10
+>>> }
     ; Set up 1/16 dutycycle HiPass on 1+3
     ldx pindex
     mva paudf3,x AUDF3
