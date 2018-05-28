@@ -46,7 +46,7 @@ sub main {
     ) or usage();
     my @targets;
     my $player = `cat player.asm.pl`;
-    chdir "players";
+    chdir "build";
     for my $media (sort @{$args{media}}) {
         my $cart = $media =~ /ram|emulator/ ? 0 : 1;
 	for my $method (sort @{$args{method}}) {
@@ -75,7 +75,7 @@ sub main {
                     my $obx = $fn;
                     $obx =~ s/\.asm\.pl$/.obx/;
                     warn "INFO: Generating $asm...\n";
-                    #system "cd players; perl $fn > $asm && " .
+                    #system "cd build; perl $fn > $asm && " .
                     #    "xasm /t:$lab /l:$lst $asm";
                     my $c = new Safe;
                     $c->reval('open STDOUT, ">$asm" or die "ERROR: Cannot open $asm: $!\n";');
