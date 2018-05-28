@@ -48,9 +48,9 @@ main
     sta AUDCTL
 
     ; graphics
-    mva #$F COLPM0
-    mva #$8 COLPM1
-    mva #$4 COLPM2
+    mva #$F COLPM0 ; channel 1
+    mva #$26 COLPM1 ; channel 2
+    mva #$4 COLPM2 ; progress indicator
     mva #$FF GRAFP0
     sta GRAFP1
     mva #1 GRAFP2
@@ -102,6 +102,9 @@ KHZ15 equ 1<<0
 bank equ $80
     ; init bank
     mva #0 bank
+>>> } elsif ($emulator) {
+bank equ $80 ; use for progress indicator
+    mva #0 bank
 >>> }
 
     mva #0 lastkey
@@ -110,6 +113,10 @@ bank equ $80
     jsr setpulse
 >>> }
 
+>>> if ($pwm and $period > 105) {
+>>>   $dups = int(($period - 1) / 105);
+>>>   $period = 105;
+>>> }
 >>> sub sample {
 >>>   ($page, $hpos) = @_; # XXX DONT use "my" here. Messes up interp().
 >>>   # Disable waveform display for high frequencies
@@ -118,14 +125,14 @@ bank equ $80
 >>>   $hpos = 1 if $period >= 105;
 >>>   if ($pcm44) {
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
-    mva hi,x AUDC3 ; 8 cycles
+    mva hi,x AUDC4 ; 8 cycles
     mva lo,x AUDC1 ; 8 cycles
 >>>     if ($hpos) {
     stx HPOSP0 ; 4 cycles
 >>>     }
 >>>     if ($stereo) {
     ldx <<<$window>>>+<<<$page+1>>>*$100,y ; 4 cycles
-    mva hi,x AUDC3+$10 ; 8 cycles
+    mva hi,x AUDC4+$10 ; 8 cycles
     mva lo,x AUDC1+$10 ; 8 cycles
 >>>       if ($hpos) {
     stx HPOSP1 ; 4 cycles
@@ -134,7 +141,7 @@ bank equ $80
 >>>     return (20 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
 >>>   } elsif ($pwm) {
 >>>     $maxhalf = ($period - 4) >> 1;
->>>     for (0 .. int(($period-1) / 105)) {
+>>>     for my $dup (reverse (0 .. $dups)) {
     lda <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     sta AUDF1 ; 4 cycles
     sta STIMER ; 4 cycles
@@ -151,6 +158,7 @@ bank equ $80
     sta HPOSP1 ; 4 cycles
 >>>         }
 >>>       }
+>>>       nop($period - (12 + ($hpos ? 6 : 0)) * ($stereo ? 2 : 1)) if $dup;
 >>>     }
 >>>     return (12 + ($hpos ? 6 : 0)) * ($stereo ? 2 : 1);
 >>>   } elsif ($covox) {
@@ -199,14 +207,27 @@ bank equ $80
 >>> if ($emulator) {
     rts ; return to loader
 continue ; called by loader
->>>   if ($pwm) {
+    mvx bank HPOSP2
+    inx:stx bank
+>>>   if ($pcm44) {
+    mva #[FAST1|FAST3|HI13] AUDCTL
+;>>>     if ($stereo) {
+;    mva #[FAST1|FAST3|HI13] AUDCTL+$10
+;>>>     }
+    ;jsr setpulse
+    ldx pindex
+    mva paudf3,x AUDF3
+    mva paudf1,x AUDF1
+    sta STIMER
+    sta AUDF3
+>>>   } elsif ($pwm) {
     mva #$AF AUDC1
     mva #$50 AUDCTL
 ; XXX - Not needed as long as emulator loader doesn't touch POKEY #2?
->>>     if ($stereo) {
-    mva #$AF AUDC1+$10
-    mva #$50 AUDCTL+$10
->>>     }
+;>>>     if ($stereo) {
+;    mva #$AF AUDC1+$10
+;    mva #$50 AUDCTL+$10
+;>>>     }
 >>>   }
 >>> }
 
@@ -343,6 +364,8 @@ initbank
 ; PCM4+4 Altirra/hardware toggle
 ;========================================
 toggle
+    lda #1
+    eor:sta pindex
     jsr setpulse
     jmp donekey
 
@@ -359,8 +382,6 @@ setpulse
     sta STIMER+$10
     sta AUDF3+$10
 >>> }
-    lda #1
-    eor:sta pindex
     beq altirra
     mva #$0 COLBK
     mva #$F COLPM0
@@ -370,7 +391,7 @@ altirra
     mva #$0 COLPM0
     rts
 pindex
-    dta 0
+    dta 1
 paudf1
     dta 12,3
 paudf3

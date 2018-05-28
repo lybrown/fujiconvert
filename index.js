@@ -49,6 +49,7 @@ function getSettings() {
     "44kHz": 37,
     "34kHz": 48,
     "31kHz": 52,
+    "22kHz": 74,
     "15kHz": 105,
     "8kHz": 210,
   };

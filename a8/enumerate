@@ -36,7 +36,7 @@ sub main {
         media => [sort keys %media],
         method => [@methods],
         channels => [qw(mono stereo)],
-        period => [qw(34 37 48 52 105 210)],
+        period => [qw(34 37 48 52 74 105 210)],
     );
     GetOptions(
         "media=s@" => \&set,
