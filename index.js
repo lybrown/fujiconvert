@@ -68,6 +68,15 @@ function readLocalStorage() {
   for (var i = 0; i < texts.length; ++i) {
     form[texts[i]].value = localStorage.getItem(texts[i]);
   }
+  if (!form.gain.value) {
+    form.gain.value = 1.5;
+  }
+  if (!form.offset.value) {
+    form.offset.value = 0;
+  }
+  if (!form.offset.duration) {
+    form.duration.value = -1;
+  }
 }
 function writeLocalStorage() {
   var form = document.getElementById("settings");
@@ -255,7 +264,9 @@ function splash(settings, labels) {
   if (!settings.title && !settings.artist) {
     text = text + trunc(" File: " + settings.filename, 40);
   }
-  var method = [settings.method, settings.channels, settings.freq, settings.media].join(" ");
+  var method = [settings.method, settings.channels,
+    (settings.freq | 0)+"Hz", settings.media, settings.region].join(" ");
+  settings.methodStr = method;
   text = text + trunc(" Method: " + method, 40);
   text = text + trunc(" Duration: " + timefmt(settings.duration), 40);
   text = text + "                                        ";
@@ -292,6 +303,57 @@ function run(addr) {
 }
 
 function convert(renderedBuffer, settings) {
+  if (settings.media == "ide") {
+    convertIDE(renderedBuffer, settings);
+  } else {
+    convertSegments(renderedBuffer, settings);
+  }
+}
+function convertIDE(renderedBuffer, settings) {
+  var method = [settings.method, settings.channels,
+    (settings.freq | 0)+"Hz", settings.media, settings.region].join(" ");
+  settings.methodStr = method;
+  var stereo = settings.channels == "stereo";
+  var data = renderedBuffer.getChannelData(0);
+  var data2 = stereo ? renderedBuffer.getChannelData(1) : undefined;
+  var len = stereo ? data.length * 2 : data.length;
+  var file = new Uint8Array(len);
+  var done = function() {
+    settings.extension = ".pcm44";
+    zip_and_offer(file, settings);
+  };
+  bar("convertBar", 0); // GUI: 0% progress
+  var max = 255;
+  var maxhalf = max/2;
+  var i = 0; // source index
+  var j = 0; // destination sector index
+  var loop = function() {
+    var k; // sector offset1
+    var l; // sector offset2
+    for (k = 0; k < 2; ++k) {
+      for (l = k; l < 0x200; l+=2, ++i) {
+        var ifix = i < data.length ? i : data.length-1;
+        if (stereo) {
+          file[j+l] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+          l+=2;
+          file[j+l] = clamp(data2[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+        } else {
+          file[j+l] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+        }
+      }
+    }
+    j += 0x200;
+    bar("convertBar", i/data.length); // GUI: progress
+    if (i < data.length) {
+      setTimeout(loop, 0);
+    } else {
+      bar("convertBar", 1); // GUI: 100% progress
+      setTimeout(done, 0);
+    }
+  };
+  loop();
+}
+function convertSegments(renderedBuffer, settings) {
   var player_name = "player-" +
     settings.media + "-" +
     settings.method + "-" +
@@ -305,93 +367,92 @@ function convert(renderedBuffer, settings) {
   var player_bin = players[player_name].player;
   var labels = players[player_name].labels;
   var stereo = settings.channels == "stereo";
-  if (labels.cartstart) {
-  } else if (settings.media == "ram") {
-  } else if (settings.media == "emulator") {
-    var contini = ini(labels.continue);
-    var buf = labels.window;
-    var buflen = 0x100 * labels.pages;
-    console.log("buflen: " + buflen + " buf: " + buf);
-    var data = renderedBuffer.getChannelData(0);
-    var data2 = stereo ? renderedBuffer.getChannelData(1) : undefined;
-    var parts = [];
-    var done = function() {
-      var player_b64 = players[player_name].player;
-      var player_u8 = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
-      var shead = header(labels.scr, labels.scrlen);
-      var stext = splash(settings, labels);
-      var quiet = labels.quiet;
-      var quietini = ini(quiet);
-      console.log("main: " + labels.main + " continue: " + labels.continue);
-      var xex = concatenate(Uint8Array,
-        player_u8, // player
-        shead, stext, // patch screen info
-        ini(labels.main), // splash + setup
-        ...parts, // sound segments
-        quietini // quiet, shutdown
-      );
-      zip_and_offer(xex, settings);
-    };
-    bar("convertBar", 0); // GUI: 0% progress
-    var max = settings.method == "pwm" ?
-      (settings.period == 52 ? 48 : 101) :
-      settings.method == "pcm4" ? 15 : 255;
-    var maxhalf = max/2;
-    var i = 0; // source index
-    var loop = function() {
-      var k; // page offset
-      var l; // destination index
-      var part = new Uint8Array(4 + buflen + 6); // data segment, ini segment
-      part.set(header(buf, buflen));
-      if (settings.method == "pcm4") {
-        for (k = 0; k < 0x100; ++k) {
-          for (l = k + 4; l < buflen + 4; l+=0x100, ++i) {
-            var ifix = i < data.length ? i : data.length-1;
-            if (stereo) {
-              hi = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
-              lo = clamp(data2[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
-              part[l] = hi << 4 | lo;
-            } else {
-              hi = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
-              ++ifix; ++i;
-              lo = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
-              part[l] = hi << 4 | lo;
-            }
-          }
-        }
-      } else {
-        for (k = 0; k < 0x100; ++k) {
-          for (l = k + 4; l < buflen + 4; l+=0x100, ++i) {
-            var ifix = i < data.length ? i : data.length-1;
-            if (stereo) {
-              part[l] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
-              l+=0x100;
-              part[l] = clamp(data2[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
-            } else {
-              part[l] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
-            }
+  var contini = ini(labels.continue);
+  var buf = labels.window;
+  var buflen = 0x100 * labels.pages;
+  console.log("buflen: " + buflen + " buf: " + buf);
+  var data = renderedBuffer.getChannelData(0);
+  var data2 = stereo ? renderedBuffer.getChannelData(1) : undefined;
+  var parts = [];
+  var done = function() {
+    var player_b64 = players[player_name].player;
+    var player_u8 = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
+    var shead = header(labels.scr, labels.scrlen);
+    var stext = splash(settings, labels);
+    var quiet = labels.quiet;
+    var quietini = ini(quiet);
+    console.log("main: " + labels.main + " continue: " + labels.continue);
+    var xex = concatenate(Uint8Array,
+      player_u8, // player
+      shead, stext, // patch screen info
+      ini(labels.main), // splash + setup
+      ...parts, // sound segments
+      quietini // quiet, shutdown
+    );
+    settings.extension = ".xex";
+    zip_and_offer(xex, settings);
+  };
+  bar("convertBar", 0); // GUI: 0% progress
+  var max = settings.method == "pwm" ?
+    (settings.period == 52 ? 48 : 101) :
+    settings.method == "pcm4" ? 15 : 255;
+  var maxhalf = max/2;
+  var i = 0; // source index
+  var loop = function() {
+    var k; // page offset
+    var l; // destination index
+    var part = new Uint8Array(4 + buflen + 6); // data segment, ini segment
+    part.set(header(buf, buflen));
+    if (settings.method == "pcm4") {
+      for (k = 0; k < 0x100; ++k) {
+        for (l = k + 4; l < buflen + 4; l+=0x100, ++i) {
+          var ifix = i < data.length ? i : data.length-1;
+          if (stereo) {
+            hi = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+            lo = clamp(data2[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+            part[l] = hi << 4 | lo;
+          } else {
+            hi = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+            ++ifix; ++i;
+            lo = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+            part[l] = hi << 4 | lo;
           }
         }
       }
-      part.set(contini, l-0xFF); // ini
-      parts.push(part); // part done
-      bar("convertBar", i/data.length); // GUI: progress
-      if (i < data.length) {
-        setTimeout(loop, 0);
-      } else {
-        bar("convertBar", 1); // GUI: 100% progress
-        setTimeout(done, 0);
+    } else {
+      for (k = 0; k < 0x100; ++k) {
+        for (l = k + 4; l < buflen + 4; l+=0x100, ++i) {
+          var ifix = i < data.length ? i : data.length-1;
+          if (stereo) {
+            part[l] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+            l+=0x100;
+            part[l] = clamp(data2[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+          } else {
+            part[l] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+          }
+        }
       }
-    };
-    loop();
-  }
+    }
+    part.set(contini, l-0xFF); // ini
+    parts.push(part); // part done
+    bar("convertBar", i/data.length); // GUI: progress
+    if (i < data.length) {
+      setTimeout(loop, 0);
+    } else {
+      bar("convertBar", 1); // GUI: 100% progress
+      setTimeout(done, 0);
+    }
+  };
+  loop();
 }
 
-function zip_and_offer(xex, settings) {
-  var xexname = settings.filename.replace(/\.[^\/.]+$/, "") + ".xex";
-  var zipname = settings.filename.replace(/\.[^\/.]+$/, "") + ".zip";
+function zip_and_offer(file, settings) {
+  var base = settings.filename.replace(/\.[^\/.]+$/, "");
+  var method = settings.methodStr;
+  var filename = base + " " + method + settings.extension;
+  var zipname = base + " " + method + ".zip";
   var zip = new JSZip();
-  zip.file(xexname, xex);
+  zip.file(filename, file);
   busy("zipBusy", 1);
   zip.generateAsync({type: "blob", compression: "DEFLATE"},
     function updateCallback(metadata) {

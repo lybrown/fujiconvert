@@ -192,15 +192,16 @@ bank equ $80 ; use for progress indicator
 >>>     }
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva hi,x AUDC1 ; 8 cycles
+    ; this HPOS is always allowed
     adc #$7F-<<<$maxhalf>>>-<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP0 ; 4 cycles
->>>     nop($period - 12);
+>>>     nop($period - 14);
     mva lo,x AUDC1 ; 8 cycles
 >>>     if ($hpos) {
     adc #$7F-<<<$maxhalf>>>+<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP0 ; 4 cycles
 >>>     }
->>>     return 12 + ($hpos ? 6 : 0);
+>>>     return 14 + ($hpos ? 6 : 0);
 >>>   }
 >>> }
 
@@ -386,6 +387,7 @@ setpulse
     sta STIMER+$10
     sta AUDF3+$10
 >>> }
+    lda pindex
     beq altirra
     mva #$0 COLBK
     mva #$F COLPM0
