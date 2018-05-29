@@ -118,6 +118,7 @@ function getSettings() {
     "512K": 512 << 10,
     "1M": 1 << 20,
     "2M": 2 << 20,
+    "4M": 4 << 20,
     "32M": 32 << 20,
     "64M": 64 << 20,
     "128M": 128 << 20,
@@ -296,7 +297,7 @@ function splash(settings, labels) {
     text = text + trunc(" Keys during playback:", 40);
   }
   if (settings.method == "pcm44") {
-    text = text + trunc(" A - Toggle between Altirra/hardware", 40);
+    text = text + trunc(" A - Toggle hardware/Altirra 3.10-test27", 40);
   }
   if (settings.media != "emulator") {
     text = text + trunc(" \x1E - Rewind", 40);
@@ -430,15 +431,13 @@ function convertIDE(renderedBuffer, settings) {
   let len = stereo ? data.length * 2 : data.length;
   let file = new Uint8Array(len);
   let done = function() {
-    settings.extension = ".pcm44";
+    settings.extension = ".pdm";
     zip_and_offer(file, settings);
   };
   bar("convertBar", 0); // GUI: 0% progress
   let max = 255;
   let maxhalf = max/2;
-  let maxbytes = Math.min(
-    cart ? carMax(settings.media) : 1e999,
-    settings.maxbytes);
+  let maxbytes = settings.maxbytes;
   let maxsamples = Math.min(
     (stereo ? maxbytes >> 1 : maxbytes) *
     (settings.method == "pcm4" ? 2 : 1),
@@ -451,7 +450,7 @@ function convertIDE(renderedBuffer, settings) {
     let l; // sector offset2
     let m; // destination index
     for (k = 0; k < 2; ++k) {
-      for (l = k, m = j + k; l < 0x200; l+=2, ++i, ++m) {
+      for (l = k, m = j + k; l < 0x200; l+=2, ++i, m+=2) {
         let ifix = i < data.length ? i : data.length-1;
         if (stereo) {
           file[m] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
