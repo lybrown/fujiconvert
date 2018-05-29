@@ -124,14 +124,14 @@ KHZ15 equ 1<<0
 >>>   $hpos = 1 if $period >= 105;
 >>>   if ($pcm44) {
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
-    mva hi,x AUDC4 ; 8 cycles
+    mva hi,x AUDC3 ; 8 cycles
     mva lo,x AUDC1 ; 8 cycles
 >>>     if ($hpos) {
     stx HPOSP0 ; 4 cycles
 >>>     }
 >>>     if ($stereo) {
     ldx <<<$window>>>+<<<$page+1>>>*$100,y ; 4 cycles
-    mva hi,x AUDC4+$10 ; 8 cycles
+    mva hi,x AUDC3+$10 ; 8 cycles
     mva lo,x AUDC1+$10 ; 8 cycles
 >>>       if ($hpos) {
     stx HPOSP1 ; 4 cycles
@@ -139,7 +139,7 @@ KHZ15 equ 1<<0
 >>>     }
 >>>     return (20 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
 >>>   } elsif ($pwm) {
->>>     $maxhalf = ($period - 4) >> 1;
+>>>     $maxhalf = (($period - 4 < 101) ? $period - 1 : 101) >> 1;
 >>>     for my $dup (reverse (0 .. $dups)) {
     lda <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     sta AUDF1 ; 4 cycles

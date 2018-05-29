@@ -87,7 +87,7 @@ function writeLocalStorage() {
     localStorage.setItem(radios[i], getRadio(form[radios[i]]))
   }
   for (let i = 0; i < selects.length; ++i) {
-    localStorage.setItem(selects[i], getRadio(form[selects[i]]))
+    localStorage.setItem(selects[i], getSelected(form[selects[i]]))
   }
   for (let i = 0; i < texts.length; ++i) {
     localStorage.setItem(texts[i], form[texts[i]].value);
@@ -110,6 +110,18 @@ function getSettings() {
     "22kHz": 74,
     "15kHz": 105,
     "8kHz": 210,
+  };
+  let maxbytes = {
+    "16K": 16 << 10,
+    "80K": 80 << 10,
+    "256K": 256 << 10,
+    "512K": 512 << 10,
+    "1M": 1 << 20,
+    "2M": 2 << 20,
+    "32M": 32 << 20,
+    "64M": 64 << 20,
+    "128M": 128 << 20,
+    "unlimited": 1 << 30,
   };
   let settings = {
     method: getRadio(form["method"]),
@@ -141,8 +153,12 @@ function getSettings() {
 
   // Show cosntrained settings
   settings.freq = cycles[settings.region] / settings.period;
-  let pretty = JSON.stringify(settings, null, 4);
-  settingsText.innerText = pretty.replace(/[{}]\n?/gm, "");
+  settingsText.innerText = Object.keys(settings).sort().map(function(key) {
+    return key + ": " + settings[key] + "\n";
+  }).join("");
+
+  // Derived settings
+  settings.maxbytes = maxbytes[settings.maxsize] || (4<<20);
 
   return settings;
 }
@@ -490,8 +506,8 @@ function convertSegments(renderedBuffer, settings) {
         player_u8, // player
         ...parts, // sound segments
       );
-      let max = carMax(settings.media);
-      bin = bin.slice(0, max);
+      let max = Math.min(carMax(settings.media), settings.maxbytes);
+      bin = bin.slice(0, max); // XXX Should never trigger if limiter in loop() is working
       let type = getCarType(settings.media, bin.length);
       let car = makecar(type, bin);
       console.log("max: " + max +
@@ -503,11 +519,16 @@ function convertSegments(renderedBuffer, settings) {
     }
   };
   bar("convertBar", 0); // GUI: 0% progress
-  let max = settings.method == "pwm" ?
-    (settings.period == 52 ? 48 : 101) :
-    settings.method == "pcm4" ? 15 : 255;
+  let max =
+    settings.method == "pwm" ? Math.min(settings.period-4, 101) :
+    settings.method == "pcm4" ? 15 :
+    255;
   let maxhalf = max/2;
   console.log("max: " + max + " maxhalf: " + maxhalf);
+  let maxbytes = Math.min(
+    cart ? carMax(settings.media) : 1e999,
+    settings.maxbytes,
+    stereo ? data.length >> 1 : data.length);
   let i = 0; // source index
   let loop = function() {
     let k; // page offset
@@ -544,8 +565,8 @@ function convertSegments(renderedBuffer, settings) {
       }
     }
     parts.push(part); // part done
-    bar("convertBar", i/data.length); // GUI: progress
-    if (i < data.length) {
+    bar("convertBar", i/maxbytes); // GUI: progress
+    if (i < maxbytes) {
       setTimeout(loop, 0);
     } else {
       bar("convertBar", 1); // GUI: 100% progress
