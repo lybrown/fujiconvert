@@ -427,7 +427,7 @@ setpulse
     sta AUDF3+$10
 >>> }
     lda pindex
-    beq altirra
+    bne altirra
     mva #$F COLBK
     mva #$0 COLPM0
     rts

@@ -75,7 +75,7 @@ function readLocalStorage() {
   if (!form.offset.value) {
     form.offset.value = 0;
   }
-  if (!form.offset.duration) {
+  if (!form.duration.value) {
     form.duration.value = -1;
   }
 }
