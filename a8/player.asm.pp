@@ -70,11 +70,13 @@ main
     ; init Covox
 >>> } else {
     ; init POKEY
+    mva #0 SKCTL
     mva #3 SKCTL
     lda #0
     ldx #7
     sta:rpl AUDF1,x-
 >>>   if ($stereo) {
+    mva #0 SKCTL+$10
     mva #3 SKCTL+$10
     lda #0
     ldx #7
@@ -175,16 +177,17 @@ KHZ15 equ 1<<0
 >>>     }
 >>>     return (8 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
 >>>   } elsif ($pcm4) {
+>>>     $maxhalf = 7;
 >>>     if ($stereo) {
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva hi,x AUDC1 ; 8 cycles
 >>>       if ($hpos) {
-    adc #$7F-<<<$maxhalf>>>-<<<$stereo ? 30 : 0>>> ; 2 cycles
-    sta HPOSP1 ; 4 cycles
+    adc #$6F-<<<$maxhalf>>>-<<<$stereo ? 30 : 0>>> ; 2 cycles
+    sta HPOSP0 ; 4 cycles
 >>>       }
     mva lo,x AUDC1+$10 ; 8 cycles
 >>>       if ($hpos) {
-    adc #$7F-<<<$maxhalf>>>+<<<$stereo ? 30 : 0>>> ; 2 cycles
+    adc #$6F-<<<$maxhalf>>>+<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP1 ; 4 cycles
 >>>       }
 >>>       return 20 + ($hpos ? 12 : 0);
@@ -192,12 +195,12 @@ KHZ15 equ 1<<0
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva hi,x AUDC1 ; 8 cycles
     ; this HPOS is always allowed
-    adc #$7F-<<<$maxhalf>>>-<<<$stereo ? 30 : 0>>> ; 2 cycles
+    adc #$6F-<<<$maxhalf>>>-<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP0 ; 4 cycles
 >>>     nop($period - 14);
     mva lo,x AUDC1 ; 8 cycles
 >>>     if ($hpos) {
-    adc #$7F-<<<$maxhalf>>>+<<<$stereo ? 30 : 0>>> ; 2 cycles
+    adc #$6F-<<<$maxhalf>>>+<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP0 ; 4 cycles
 >>>     }
 >>>     return 14 + ($hpos ? 6 : 0);
@@ -256,6 +259,8 @@ play
     ; sample N-2
 >>> my $cycles = sample($pages-2*$pages_per_sample, 0);
     lda SKSTAT ; 4 cycles
+    ; and #4 ; 2 cycles NOTE: Cheat here to save cycles.
+    ; NOTE: This means that shift and control will repeat the last action.
     cmp:sta lastkey ; 6 cycles
     bcc keydown ; 2 cycles
 >>> nop($period - $cycles - 12);
@@ -416,13 +421,13 @@ setpulse
     sta AUDF3+$10
 >>> }
     lda pindex
-    bne altirra
-    mva #$0 COLBK
-    mva #$F COLPM0
-    rts
-altirra
+    beq altirra
     mva #$F COLBK
     mva #$0 COLPM0
+    rts
+altirra
+    mva #$0 COLBK
+    mva #$F COLPM0
     rts
 pindex
     dta 0

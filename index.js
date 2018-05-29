@@ -529,6 +529,9 @@ function convertSegments(renderedBuffer, settings) {
     cart ? carMax(settings.media) : 1e999,
     settings.maxbytes,
     stereo ? data.length >> 1 : data.length);
+  let maxsamples =
+    (stereo ? maxbytes >> 1 : maxbytes) *
+    (settings.method == "pcm4" ? 2 : 1);
   let i = 0; // source index
   let loop = function() {
     let k; // page offset
@@ -565,8 +568,8 @@ function convertSegments(renderedBuffer, settings) {
       }
     }
     parts.push(part); // part done
-    bar("convertBar", i/maxbytes); // GUI: progress
-    if (i < maxbytes) {
+    bar("convertBar", i/maxsamples); // GUI: progress
+    if (i < maxsamples) {
       setTimeout(loop, 0);
     } else {
       bar("convertBar", 1); // GUI: 100% progress
