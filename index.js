@@ -1,6 +1,6 @@
 // vim: ts=2:sts=2:sw=2
 function getRadio(radio) {
-  for (var i = 0; i < radio.length; ++i) {
+  for (let i = 0; i < radio.length; ++i) {
     if (radio[i].checked) {
       return radio[i].value;
     }
@@ -8,14 +8,14 @@ function getRadio(radio) {
   return "NONE";
 }
 function setRadio(radio, value) {
-  for (var i = 0; i < radio.length; ++i) {
+  for (let i = 0; i < radio.length; ++i) {
     if (radio[i].value == value) {
       radio[i].checked = true;
     }
   }
 }
 function getSelected(select) {
-  for (var i = 0; i < select.length; ++i) {
+  for (let i = 0; i < select.length; ++i) {
     if (select[i].selected) {
       return select[i].value;
     }
@@ -23,7 +23,7 @@ function getSelected(select) {
   return "NONE";
 }
 function setSelected(select, value) {
-  for (var i = 0; i < select.length; ++i) {
+  for (let i = 0; i < select.length; ++i) {
     if (select[i].value == value) {
       return select[i].selected = true;
     }
@@ -31,11 +31,11 @@ function setSelected(select, value) {
   return "NONE";
 }
 function bar(name, fraction) {
-  var bar = document.getElementById(name);
+  let bar = document.getElementById(name);
   bar.style.width = (fraction * 100) + "%";
 }
 function busy(name, state) {
-  var busy = document.getElementById(name);
+  let busy = document.getElementById(name);
   if (state == 0) {
     busy.style.visibility = "hidden";
     busy.parentNode.style["background-color"] = "#ddd";
@@ -48,24 +48,24 @@ function busy(name, state) {
   }
 }
 function text(name, msg) {
-  var message = document.getElementById(name);
+  let message = document.getElementById(name);
   message.innerText = msg;
 }
 function readLocalStorage() {
   if (!localStorage.getItem("method")) {
     return;
   }
-  var form = document.getElementById("settings");
-  var radios = ["method", "channels", "region", "frequency", "media"];
-  var selects = ["maxsize"];
-  var texts = ["gain", "offset", "duration", "title", "artist"];
-  for (var i = 0; i < radios.length; ++i) {
+  let form = document.getElementById("settings");
+  let radios = ["method", "channels", "region", "frequency", "media"];
+  let selects = ["maxsize"];
+  let texts = ["gain", "offset", "duration", "title", "artist"];
+  for (let i = 0; i < radios.length; ++i) {
     setRadio(form[radios[i]], localStorage.getItem(radios[i]));
   }
-  for (var i = 0; i < selects.length; ++i) {
+  for (let i = 0; i < selects.length; ++i) {
     setSelected(form[selects[i]], localStorage.getItem(selects[i]));
   }
-  for (var i = 0; i < texts.length; ++i) {
+  for (let i = 0; i < texts.length; ++i) {
     form[texts[i]].value = localStorage.getItem(texts[i]);
   }
   if (!form.gain.value) {
@@ -79,29 +79,29 @@ function readLocalStorage() {
   }
 }
 function writeLocalStorage() {
-  var form = document.getElementById("settings");
-  var radios = ["method", "channels", "region", "frequency", "media"];
-  var selects = ["maxsize"];
-  var texts = ["gain", "offset", "duration", "title", "artist"];
-  for (var i = 0; i < radios.length; ++i) {
+  let form = document.getElementById("settings");
+  let radios = ["method", "channels", "region", "frequency", "media"];
+  let selects = ["maxsize"];
+  let texts = ["gain", "offset", "duration", "title", "artist"];
+  for (let i = 0; i < radios.length; ++i) {
     localStorage.setItem(radios[i], getRadio(form[radios[i]]))
   }
-  for (var i = 0; i < selects.length; ++i) {
+  for (let i = 0; i < selects.length; ++i) {
     localStorage.setItem(selects[i], getRadio(form[selects[i]]))
   }
-  for (var i = 0; i < texts.length; ++i) {
+  for (let i = 0; i < texts.length; ++i) {
     localStorage.setItem(texts[i], form[texts[i]].value);
   }
 }
 function getSettings() {
   writeLocalStorage();
-  var form = document.getElementById("settings");
-  var settingsText = document.getElementById("settingsText");
-  var cycles = {
+  let form = document.getElementById("settings");
+  let settingsText = document.getElementById("settingsText");
+  let cycles = {
     ntsc: 262*105*60,
     pal: 312*105*50,
   };
-  var period = {
+  let period = {
     "58kHz": 28,
     "48kHz": 34,
     "44kHz": 37,
@@ -111,7 +111,7 @@ function getSettings() {
     "15kHz": 105,
     "8kHz": 210,
   };
-  var settings = {
+  let settings = {
     method: getRadio(form["method"]),
     channels: getRadio(form["channels"]),
     region: getRadio(form["region"]),
@@ -141,21 +141,21 @@ function getSettings() {
 
   // Show cosntrained settings
   settings.freq = cycles[settings.region] / settings.period;
-  var pretty = JSON.stringify(settings, null, 4);
+  let pretty = JSON.stringify(settings, null, 4);
   settingsText.innerText = pretty.replace(/[{}]\n?/gm, "");
 
   return settings;
 }
 function readSingleFile(e) {
-  var file = e.target.files[0];
+  let file = e.target.files[0];
   if (!file) {
     return;
   }
-  var settings = getSettings();
+  let settings = getSettings();
   settings.filename = file.name;
 
   // Read as binary and offer download
-  var binreader = new FileReader();
+  let binreader = new FileReader();
 
   // Reset indicators
   bar("readBar", 0);
@@ -165,13 +165,13 @@ function readSingleFile(e) {
   text("decodeMessage", "");
   text("convertMessage", "");
   text("readMessage", "");
-  var download = document.getElementById("download");
+  let download = document.getElementById("download");
   download.innerText = "";
   download.href = "";
 
   binreader.onload = function(e) {
     bar("readBar", 1);
-    var contents = e.target.result;
+    let contents = e.target.result;
     decode(contents, settings);
   };
   binreader.onprogress = function(event) {
@@ -207,17 +207,17 @@ function concatenate(resultConstructor, ...arrays) {
 }
 
 function decode(contents, settings) {
-  var c = new AudioContext();
+  let c = new AudioContext();
   busy("decodeBusy", 1);
   c.decodeAudioData(contents,function(buffer) {
     myBuffer = buffer;
-    var duration = settings.duration > 0 ?
+    let duration = settings.duration > 0 ?
         clamp(settings.duration, 0, buffer.duration) : buffer.duration;
     settings.duration = duration;
-    var channels = settings.channels == "stereo" ? 2 : 1;
-    var oc = new OfflineAudioContext(channels, settings.freq*duration, settings.freq);
-    var source = oc.createBufferSource();
-    var gainNode = oc.createGain();
+    let channels = settings.channels == "stereo" ? 2 : 1;
+    let oc = new OfflineAudioContext(channels, settings.freq*duration, settings.freq);
+    let source = oc.createBufferSource();
+    let gainNode = oc.createGain();
     // gainNode.gain.setValueAtTime(settings.gain, c.currentTime);
     gainNode.gain.value = settings.gain;
     source.buffer = myBuffer;
@@ -236,25 +236,25 @@ function decode(contents, settings) {
 }
 
 function ascii2internal(c) {
-  var ch = c.charCodeAt(0);
+  let ch = c.charCodeAt(0);
   return ch < 32 ? ch + 64 : ch < 96 ? ch - 32 : ch;
 }
 function trunc(str, len) {
   return str.slice(0, len).padEnd(len);
 }
-function timefmt(seconds) {
-  var s = seconds*1000 | 0;
-  var hours = s / 3600000 | 0;
-  var minutes = s % 360000 / 60000 | 0;
-  var seconds = s % 60000 / 1000 | 0;
-  var msecs = s % 1000;
+function timefmt(secs) {
+  let s = secs*1000 | 0;
+  let hours = s / 3600000 | 0;
+  let minutes = s % 360000 / 60000 | 0;
+  let seconds = s % 60000 / 1000 | 0;
+  let msecs = s % 1000;
   return [hours, minutes, seconds].map(x => x.toString().padStart(2, "0")).join(":") +
       "." + msecs.toString().padStart(3, "0")
 }
 
 function splash(settings, labels) {
   //             0123456789012345678901234567890123456789
-  var text = "";
+  let text = "";
   if (settings.title) {
     text = text + trunc(" Title: " + settings.title, 40);
   }
@@ -264,7 +264,7 @@ function splash(settings, labels) {
   if (!settings.title && !settings.artist) {
     text = text + trunc(" File: " + settings.filename, 40);
   }
-  var method = [settings.method, settings.channels,
+  let method = [settings.method, settings.channels,
     (settings.freq | 0)+"Hz", settings.media, settings.region].join(" ");
   settings.methodStr = method;
   text = text + trunc(" Method: " + method, 40);
@@ -292,16 +292,81 @@ function splash(settings, labels) {
 }
 
 function header(start, length) {
-  var end = start + length - 1;
+  let end = start + length - 1;
   return [start & 0xFF, start >> 8, end & 0xFF, end >> 8];
 }
 function ini(addr) {
-    return new Uint8Array([0xE2, 0x02, 0xE3, 0x02, addr & 0xFF, addr >> 8]);
+  return new Uint8Array([0xE2, 0x02, 0xE3, 0x02, addr & 0xFF, addr >> 8]);
 }
 function run(addr) {
-    return new Uint8Array([0xE0, 0x02, 0xE1, 0x02, addr & 0xFF, addr >> 8]);
+  return new Uint8Array([0xE0, 0x02, 0xE1, 0x02, addr & 0xFF, addr >> 8]);
 }
-
+function checksum(bin) {
+  return bin.reduce(function(x, y) { return (x + y) & 0xFFFFFFFF });
+}
+function ord(c) {
+  return c.charCodeAt(0);
+}
+function makecar(type, bin) {
+  let buffer = new ArrayBuffer(16);
+  let view = new DataView(buffer);
+  view.setUint8(0, ord("C"));
+  view.setUint8(1, ord("A"));
+  view.setUint8(2, ord("R"));
+  view.setUint8(3, ord("T"));
+  view.setUint32(4, type);
+  view.setUint32(8, checksum(bin));
+  view.setUint32(12, 0);
+  return concatenate(Uint8Array, new Uint8Array(buffer), bin);
+}
+function carMax(media) {
+  let max = {
+    thecart: 128 << 20,
+    sic: 512 << 10,
+    megamax: 2 << 20,
+    atarimax: 1 << 20,
+    megacart: 4 << 20,
+    xegs: 4 << 20,
+  };
+  return max[media];
+}
+function getCarType(media, length) {
+  if (media == "thecart") {
+    return length <= (32 << 20) ? 65 :
+      length <= (64 << 20) ? 66 : 
+      length <= (128 << 20) ? 62 :
+      0;
+  } else if (media == "sic") {
+    return length <= (128 << 10) ? 54 :
+      length <= (256 << 10) ? 55 : 
+      length <= (512 << 10) ? 56 :
+      0;
+  } else if (media == "megamax") {
+    return length <= (2 << 20) ? 61 :
+      0;
+  } else if (media == "atarimax") {
+    return length <= (127 << 10) ? 41 :
+      length <= (1 << 20) ? 42 :
+      0;
+  } else if (media == "megacart") {
+    return length <= (16 << 10) ? 26 :
+      length <= (32 << 10) ? 27 :
+      length <= (64 << 10) ? 28 :
+      length <= (128 << 10) ? 29 :
+      length <= (256 << 10) ? 30 :
+      length <= (512 << 10) ? 31 :
+      length <= (1 << 20) ? 32 :
+      length <= (2 << 20) ? 64 :
+      length <= (4 << 20) ? 65 :
+      0;
+  } else if (media == "xegs") {
+    return length <= (256 << 10) ? 23 :
+      length <= (512 << 10) ? 24 :
+      length <= (1 << 20) ? 25 :
+      0;
+  }
+  return 0;
+}
 function convert(renderedBuffer, settings) {
   if (settings.media == "ide") {
     convertIDE(renderedBuffer, settings);
@@ -310,29 +375,29 @@ function convert(renderedBuffer, settings) {
   }
 }
 function convertIDE(renderedBuffer, settings) {
-  var method = [settings.method, settings.channels,
+  let method = [settings.method, settings.channels,
     (settings.freq | 0)+"Hz", settings.media, settings.region].join(" ");
   settings.methodStr = method;
-  var stereo = settings.channels == "stereo";
-  var data = renderedBuffer.getChannelData(0);
-  var data2 = stereo ? renderedBuffer.getChannelData(1) : undefined;
-  var len = stereo ? data.length * 2 : data.length;
-  var file = new Uint8Array(len);
-  var done = function() {
+  let stereo = settings.channels == "stereo";
+  let data = renderedBuffer.getChannelData(0);
+  let data2 = stereo ? renderedBuffer.getChannelData(1) : undefined;
+  let len = stereo ? data.length * 2 : data.length;
+  let file = new Uint8Array(len);
+  let done = function() {
     settings.extension = ".pcm44";
     zip_and_offer(file, settings);
   };
   bar("convertBar", 0); // GUI: 0% progress
-  var max = 255;
-  var maxhalf = max/2;
-  var i = 0; // source index
-  var j = 0; // destination sector index
-  var loop = function() {
-    var k; // sector offset1
-    var l; // sector offset2
+  let max = 255;
+  let maxhalf = max/2;
+  let i = 0; // source index
+  let j = 0; // destination sector index
+  let loop = function() {
+    let k; // sector offset1
+    let l; // sector offset2
     for (k = 0; k < 2; ++k) {
       for (l = k; l < 0x200; l+=2, ++i) {
-        var ifix = i < data.length ? i : data.length-1;
+        let ifix = i < data.length ? i : data.length-1;
         if (stereo) {
           file[j+l] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
           l+=2;
@@ -354,7 +419,7 @@ function convertIDE(renderedBuffer, settings) {
   loop();
 }
 function convertSegments(renderedBuffer, settings) {
-  var player_name = "player-" +
+  let player_name = "player-" +
     settings.media + "-" +
     settings.method + "-" +
     settings.channels + "-" +
@@ -364,49 +429,91 @@ function convertSegments(renderedBuffer, settings) {
   if (!players[player_name]) {
     text("convertMessage", "ERROR: Unsupported player: " + player_name);
   }
-  var player_bin = players[player_name].player;
-  var labels = players[player_name].labels;
-  var stereo = settings.channels == "stereo";
-  var contini = ini(labels.continue);
-  var buf = labels.window;
-  var buflen = 0x100 * labels.pages;
+  let player_bin = players[player_name].player;
+  let labels = players[player_name].labels;
+  let cart = labels.cartstart ? 1 : 0;
+  let stereo = settings.channels == "stereo";
+  let buf = labels.window;
+  let buflen = 0x100 * labels.pages;
   console.log("buflen: " + buflen + " buf: " + buf);
-  var data = renderedBuffer.getChannelData(0);
-  var data2 = stereo ? renderedBuffer.getChannelData(1) : undefined;
-  var parts = [];
-  var done = function() {
-    var player_b64 = players[player_name].player;
-    var player_u8 = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
-    var shead = header(labels.scr, labels.scrlen);
-    var stext = splash(settings, labels);
-    var quiet = labels.quiet;
-    var quietini = ini(quiet);
-    console.log("main: " + labels.main + " continue: " + labels.continue);
-    var xex = concatenate(Uint8Array,
-      player_u8, // player
-      shead, stext, // patch screen info
-      ini(labels.main), // splash + setup
-      ...parts, // sound segments
-      quietini // quiet, shutdown
-    );
-    settings.extension = ".xex";
-    zip_and_offer(xex, settings);
+  let data = renderedBuffer.getChannelData(0);
+  let data2 = stereo ? renderedBuffer.getChannelData(1) : undefined;
+  let parts = [];
+  let done = function() {
+    let player_b64 = players[player_name].player;
+    let player_u8 = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
+    let shead = header(labels.scr, labels.scrlen);
+    let stext = splash(settings, labels);
+    if (settings.media == "emulator") {
+      console.log("main: " + labels.main +
+        " continue: " + labels.continue +
+        " quiet: " + labels.quiet);
+      let contini = ini(labels.continue);
+      let pieces = [];
+      for (let i = 0; i < parts.length; ++i) {
+        pieces.push(header(buf, buflen));
+        pieces.push(parts[i]);
+        pieces.push(contini);
+      }
+      let xex = concatenate(Uint8Array,
+        player_u8, // player
+        shead, stext, // patch screen info
+        ini(labels.main), // splash + setup
+        ...pieces, // sound segments
+        ini(labels.quiet) // quiet, shutdown
+      );
+      settings.extension = ".xex";
+      zip_and_offer(xex, settings);
+    } else if (settings.media == "ram") {
+      console.log("main: " + labels.main +
+        " prepnextbank: " + labels.prepnextbank);
+      let prepini = ini(labels.prepnextbank);
+      let pieces = [];
+      for (let i = 0; i < parts.length; ++i) {
+        pieces.push(prepini);
+        pieces.push(header(buf, buflen));
+        pieces.push(parts[i]);
+      }
+      let xex = concatenate(Uint8Array,
+        player_u8, // player
+        shead, stext, // patch screen info
+        ...pieces, // sound segments
+      );
+      settings.extension = ".xex";
+      zip_and_offer(xex, settings);
+    } else if (cart) {
+      player_u8.set(settings.scr - settings.relocated_start, stext);
+      let bin = concatenate(Uint8Array,
+        player_u8, // player
+        ...pieces, // sound segments
+      );
+      let max = carMax(settings.media);
+      bin = bin.slice(0, max);
+      let type = getCarType(settings.media, bin.length);
+      let car = makecar(type, bin);
+      console.log("max: " + max +
+        " type: " + type);
+      settings.extension = ".car";
+      zip_and_offer(car, settings);
+    } else {
+      text("convertMessage", "ERROR: Unsupported media: " + settings.media);
+    }
   };
   bar("convertBar", 0); // GUI: 0% progress
-  var max = settings.method == "pwm" ?
+  let max = settings.method == "pwm" ?
     (settings.period == 52 ? 48 : 101) :
     settings.method == "pcm4" ? 15 : 255;
-  var maxhalf = max/2;
-  var i = 0; // source index
-  var loop = function() {
-    var k; // page offset
-    var l; // destination index
-    var part = new Uint8Array(4 + buflen + 6); // data segment, ini segment
-    part.set(header(buf, buflen));
+  let maxhalf = max/2;
+  console.log("max: " + max + " maxhalf: " + maxhalf);
+  let i = 0; // source index
+  let loop = function() {
+    let k; // page offset
+    let l; // destination index
+    let part = new Uint8Array(buflen);
     if (settings.method == "pcm4") {
       for (k = 0; k < 0x100; ++k) {
-        for (l = k + 4; l < buflen + 4; l+=0x100, ++i) {
-          var ifix = i < data.length ? i : data.length-1;
+        for (l = k; l < buflen; l+=0x100, ++i) {
+          let ifix = i < data.length ? i : data.length-1;
           if (stereo) {
             hi = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
             lo = clamp(data2[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
@@ -421,8 +528,8 @@ function convertSegments(renderedBuffer, settings) {
       }
     } else {
       for (k = 0; k < 0x100; ++k) {
-        for (l = k + 4; l < buflen + 4; l+=0x100, ++i) {
-          var ifix = i < data.length ? i : data.length-1;
+        for (l = k; l < buflen; l+=0x100, ++i) {
+          let ifix = i < data.length ? i : data.length-1;
           if (stereo) {
             part[l] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
             l+=0x100;
@@ -433,7 +540,6 @@ function convertSegments(renderedBuffer, settings) {
         }
       }
     }
-    part.set(contini, l-0xFF); // ini
     parts.push(part); // part done
     bar("convertBar", i/data.length); // GUI: progress
     if (i < data.length) {
@@ -447,11 +553,11 @@ function convertSegments(renderedBuffer, settings) {
 }
 
 function zip_and_offer(file, settings) {
-  var base = settings.filename.replace(/\.[^\/.]+$/, "");
-  var method = settings.methodStr;
-  var filename = base + " " + method + settings.extension;
-  var zipname = base + " " + method + ".zip";
-  var zip = new JSZip();
+  let base = settings.filename.replace(/\.[^\/.]+$/, "");
+  let method = settings.methodStr;
+  let filename = base + " " + method + settings.extension;
+  let zipname = base + " " + method + ".zip";
+  let zip = new JSZip();
   zip.file(filename, file);
   busy("zipBusy", 1);
   zip.generateAsync({type: "blob", compression: "DEFLATE"},
@@ -464,7 +570,7 @@ function zip_and_offer(file, settings) {
 }
 
 function offerDownload(name, blob) {
-  var element = document.getElementById("download");
+  let element = document.getElementById("download");
   element.innerText = name;
   element.download = name;
 

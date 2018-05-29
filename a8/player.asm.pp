@@ -13,6 +13,7 @@ lastkey equ $82
     org <<<$window>>>
 cart2ram_start
     org r:$2000
+relocated_start
 >>> } else {
     org $2000
 >>> }
@@ -39,6 +40,10 @@ hi
     icl 'splash.asm'
 
 main
+>>> if ($ram) {
+    ldx bankindex
+    mva #0 banks,x
+>>> }
     jsr splash
 
     ; disable interrupts, ANTIC, POKEY
@@ -51,12 +56,15 @@ main
     mva #$F COLPM0 ; channel 1
     mva #$26 COLPM1 ; channel 2
     mva #$4 COLPM2 ; progress indicator
+    mva #$4 COLPM3 ; progress indicator
     mva #$FF GRAFP0
     sta GRAFP1
     mva #1 GRAFP2
+    mva #1 GRAFP3
     mva #0 HPOSP0
     sta HPOSP1
     sta HPOSP2
+    sta HPOSP3
 
 >>> if ($covox) {
     ; init Covox
@@ -96,15 +104,6 @@ KHZ15 equ 1<<0
     mva #$FF AUDF2+$10
     mva #$50 AUDCTL+$10
 >>>   }
->>> }
-
->>> if ($ram or $cart) {
-bank equ $80
-    ; init bank
-    mva #0 bank
->>> } elsif ($emulator) {
-bank equ $80 ; use for progress indicator
-    mva #0 bank
 >>> }
 
     mva #0 lastkey
@@ -206,9 +205,14 @@ bank equ $80 ; use for progress indicator
 >>> }
 
 >>> if ($emulator) {
+bank equ $80 ; use for progress indicator
+    mva #0 bank
     rts ; return to loader
 continue ; called by loader
     mvx bank HPOSP2
+    txa
+    add #$80
+    sta HPOSP3
     inx:stx bank
 >>>   if ($pcm44) {
     mva #[FAST1|FAST3|HI13] AUDCTL
@@ -230,6 +234,14 @@ continue ; called by loader
 ;    mva #$50 AUDCTL+$10
 ;>>>     }
 >>>   }
+>>> }
+
+>>> if ($ram or $cart) {
+bank equ $80
+    ; init bank
+    mva #0 bank
+    ldy #0
+    jmp nextbank
 >>> }
 
 play0
@@ -285,10 +297,13 @@ keydown
     ; <<<$media>>>
 >>> if ($ram) {
 prevbank
-    :2 dec bank
+    :3 dec bank
 nextbank
     ldx bank
     stx HPOSP2
+    txa
+    add #$80
+    sta HPOSP3
     lda banks,x
     bne nextbank2
     mva #0 bank
@@ -302,10 +317,13 @@ initbank
     rts
 >>> } elsif ($xegs or $megacart) {
 prevbank
-    :2 dec bank
+    :3 dec bank
 nextbank
     ldx bank
     stx HPOSP2
+    txa
+    add #$80
+    sta HPOSP3
     stx $D500
     inx
     stx bank
@@ -315,10 +333,13 @@ initbank
     rts
 >>> } elsif ($atarimax or $megamax) {
 prevbank
-    :2 dec bank
+    :3 dec bank
 nextbank
     ldx bank
     stx HPOSP2
+    txa
+    add #$80
+    sta HPOSP3
     sta $D500,x
     inx
     stx bank
@@ -328,13 +349,17 @@ initbank
     rts
 >>> } elsif ($sic) {
 prevbank
-    :2 dec bank
+    :3 dec bank
+    ldy #0
 nextbank
     lda bank
     sta HPOSP2
     and #$1F
     ora #$20
     sta $D500
+    lda bank
+    add #$80
+    sta HPOSP3
     inc bank
     jmp play
 initbank
@@ -345,12 +370,16 @@ prevbank
     lda $D5A0
     sta HPOSP2
     php
+    add #$80
+    sta HPOSP3
     dec $D5A0
     plp
     sne:dec $D5A1
     jmp play
 nextbank
     mva $D5A0 HPOSP2
+    add #$80
+    sta HPOSP3
     inc $D5A0
     sne:inc $D5A1
     jmp play
@@ -460,6 +489,7 @@ slowplayer equ 1
 ; run
 ;========================================
     run main
+    ini detectram
 >>> } elsif ($emulator) {
 quiet
     lda #0

@@ -7,10 +7,12 @@ bankindex
     dta 0
 prepnextbank
     ldx bankindex
-    mva banks,x PORTB
+    lda banks,x
+    sne:jmp main ; cancel load and run if banks are full
+    sta PORTB
     inx
     stx bankindex
-    sta GRAFP0
+    sta rdscr+38
     rts
 
     ; destroys addresses 0, 4000, 8000, C000 on RAMBO 256K
@@ -76,6 +78,8 @@ c1
 l4
     lda dontuse,x
     bne c2
+    cpx #$10
+    sne:ldx #$90 ; disable self-test in main ram bank
     txa
     ; set OS enable bit on all banks
     ora #1
@@ -85,5 +89,48 @@ c2
     bne l4
     ; terminate list with 0
     mva #0 banks,y
+    jsr displaycount
+    lda #0
+    sta:rne banks,y+
 
+    ; display loading message
+    mwa #rddlist $230 ; SDLSTL
+    mva #0 $2C6 ; COLOR2
+    mva #15 $2C5 ; COLOR1
+    lda:rne VCOUNT
+    mva #$22 $22F ; SDMCTL
+
+    ; restore OS ROM
+    mva #$FF PORTB
+    ; restore interrupts
+    cli
+    mva #$40 NMIEN
+
+    rts
+
+rddlist
+    :5 dta $70
+    dta $42,a(rdscr)
+    dta $70
+    dta $42,a(banks)
+    dta $2
+    dta $41,a(rddlist)
+rdscr
+    ;     0123456789012345678901234567890123456789
+    dta d'    Loading into 00 detected banks...   '
+displaycount
+    tya
+    ldx #0
+divmod
+    cmp #10
+    bcc done
+    sbc #10
+    inx
+    jmp divmod
+done
+    adc #16
+    sta rdscr+18
+    txa
+    adc #16
+    sta rdscr+17
     rts

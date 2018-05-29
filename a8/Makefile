@@ -4,10 +4,12 @@ build/players.json: player.asm.pl enumerate obx2json splash.asm ramdetect.asm ha
 	cp -f splash.asm build
 	cp -f ramdetect.asm build
 	#./enumerate -media thecart
-	./enumerate -media emulator
+	./enumerate -media ram
+	#./enumerate
 	./obx2json build/player-*.obx $(out)
 
 det.run:
+det.obx: ramdetect.asm
 simple.run:
 
 out = > $@~ && mv $@~ $@
