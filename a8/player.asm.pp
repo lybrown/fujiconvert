@@ -401,7 +401,7 @@ nextbank
 
 >>> if ($pcm44) {
 ;========================================
-; PCM4+4 Altirra/hardware toggle
+; PCM4+4 hardware/Altirra-3.10-test27 and prior toggle
 ;========================================
 toggle
     lda #1
@@ -436,7 +436,7 @@ altirra
     mva #$F COLPM0
     rts
 pindex
-    dta 0
+    dta 1
 paudf1
     dta 12,3
 paudf3
