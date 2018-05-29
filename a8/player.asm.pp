@@ -11,6 +11,9 @@ lastkey equ $82
 >>> if ($cart) {
     opt f+h-
     org <<<$window>>>
+>>> if ($sic) {
+    org <<<$window+$2000>>>
+>>> }
 cart2ram_start
     org r:$2000
 relocated_start
@@ -242,9 +245,7 @@ continue ; called by loader
 >>> if ($ram or $cart) {
 bank equ $80
     ; init bank
-    mva #0 bank
-    ldy #0
-    jmp nextbank
+    jmp initbank
 >>> }
 
 play0
@@ -319,6 +320,7 @@ nextbank2
     jmp play
 initbank
     mva #0 bank
+    tay
     jmp nextbank
 >>> } elsif ($xegs or $megacart) {
 prevbank
@@ -334,7 +336,8 @@ nextbank
     stx bank
     jmp play
 initbank
-    mva #0 bank
+    mva #1 bank
+    ldy #0
     jmp nextbank
 >>> } elsif ($atarimax or $megamax) {
 prevbank
@@ -350,7 +353,8 @@ nextbank
     stx bank
     jmp play
 initbank
-    mva #0 bank
+    mva #<<<$megamax ? 1 : 0>>> bank
+    ldy #0
     jmp nextbank
 >>> } elsif ($sic) {
 prevbank
@@ -368,7 +372,8 @@ nextbank
     inc bank
     jmp play
 initbank
-    mva #0 bank
+    mva #1 bank
+    ldy #0
     jmp nextbank
 >>> } elsif ($thecart) {
 prevbank
@@ -382,7 +387,8 @@ prevbank
     adc:sta $D5A1
     jmp play0
 initbank
-    mwa #0 $D5A0
+    mwa #0 $D5A0 ; next bank will advance to 1, so zero is OK here
+    tay
 nextbank
     mva $D5A0 HPOSP2
     add #$80
@@ -506,8 +512,8 @@ dummyquiet equ quiet
 ;========================================
 ; end of cart
 ;========================================
-cart2ram_end
     org <<<$window>>>+<<<$pages-1>>>*$100
+cart2ram_end
 cartstart
     ; copy code to ram
     mwa #cart2ram_start $80

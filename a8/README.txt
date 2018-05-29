@@ -100,6 +100,7 @@ PCM4
 XEGS
     $8000-9FFF - bank determined by writing bank # to $D5XX
     $A000-BFFF - last bank
+    starts in bank ??
 
     type 23 - 256K
     type 24 - 512K
@@ -107,7 +108,7 @@ XEGS
 
 MegaCart
     $8000-BFFF - bank determined by writing bank # to $D5XX
-    Starts in bank 0?
+    Starts in bank 0
 
     type 26 - 16K
     type 27 - 32K
@@ -122,14 +123,14 @@ MegaCart
 
 AtariMax
     $A000-BFFF - bank determined by writing any value to $D500+bank
-    Starts in bank 0?
+    Starts in last bank
 
     type 41 - 128K
     type 42 - 1M
 
 MegaMax
     $8000-BFFF - bank determined by accessing $D500+bank
-    Starts in bank 0?
+    Starts in bank 0
 
     type 61 - 2M
 

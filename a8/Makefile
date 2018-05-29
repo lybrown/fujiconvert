@@ -5,7 +5,9 @@ build/players.json: player.asm.pl enumerate obx2json splash.asm ramdetect.asm ha
 	cp -f ramdetect.asm build
 	#./enumerate -media thecart
 	#./enumerate -media ram
-	./enumerate -method pcm4
+	#./enumerate -media sic
+	#./enumerate -method pcm4
+	./enumerate
 	./obx2json build/player-*.obx $(out)
 
 det.run:

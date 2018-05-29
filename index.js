@@ -140,8 +140,11 @@ function getSettings() {
   // Constraints
   if (settings.media == "ide") {
     settings.method = "pcm44";
-    settings.channels = "mono";
-    settings.frequency = "44kHz";
+    if (settings.channels == "stereo") {
+      settings.frequency = "22kHz";
+    } else {
+      settings.frequency = "44kHz";
+    }
   }
   settings.period = period[settings.frequency];
   if (settings.channels == "stereo") {
@@ -347,6 +350,32 @@ function carMax(media) {
   };
   return max[media];
 }
+function cartSize(type) {
+  let sizes = {
+    23: 256 << 10,
+    24: 512 << 10,
+    25: 1 << 20,
+    26: 16 << 10,
+    27: 32 << 10,
+    28: 64 << 10,
+    29: 128 << 10,
+    30: 256 << 10,
+    31: 512 << 10,
+    32: 1 << 20,
+    41: 127 << 10,
+    42: 1 << 20,
+    54: 128 << 10,
+    55: 256 << 10, 
+    56: 512 << 10,
+    61: 2 << 20,
+    62: 128 << 20,
+    63: 4 << 20,
+    64: 2 << 20,
+    65: 32 << 20,
+    66: 64 << 20, 
+  }
+  return sizes[type] || 0;
+}
 function getCarType(media, length) {
   if (media == "thecart") {
     return length <= (32 << 20) ? 65 :
@@ -374,7 +403,7 @@ function getCarType(media, length) {
       length <= (512 << 10) ? 31 :
       length <= (1 << 20) ? 32 :
       length <= (2 << 20) ? 64 :
-      length <= (4 << 20) ? 65 :
+      length <= (4 << 20) ? 63 :
       0;
   } else if (media == "xegs") {
     return length <= (256 << 10) ? 23 :
@@ -407,26 +436,35 @@ function convertIDE(renderedBuffer, settings) {
   bar("convertBar", 0); // GUI: 0% progress
   let max = 255;
   let maxhalf = max/2;
+  let maxbytes = Math.min(
+    cart ? carMax(settings.media) : 1e999,
+    settings.maxbytes);
+  let maxsamples = Math.min(
+    (stereo ? maxbytes >> 1 : maxbytes) *
+    (settings.method == "pcm4" ? 2 : 1),
+    data.length);
+  console.log("maxbytes: " + maxbytes + " maxsamples: " + maxsamples);
   let i = 0; // source index
   let j = 0; // destination sector index
   let loop = function() {
     let k; // sector offset1
     let l; // sector offset2
+    let m; // destination index
     for (k = 0; k < 2; ++k) {
-      for (l = k; l < 0x200; l+=2, ++i) {
+      for (l = k, m = j + k; l < 0x200; l+=2, ++i, ++m) {
         let ifix = i < data.length ? i : data.length-1;
         if (stereo) {
-          file[j+l] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
-          l+=2;
-          file[j+l] = clamp(data2[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+          file[m] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+          l+=2; m+=2;
+          file[m] = clamp(data2[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
         } else {
-          file[j+l] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
+          file[m] = clamp(data[ifix], -1, 1) * maxhalf + maxhalf | 0; // MAC
         }
       }
     }
     j += 0x200;
-    bar("convertBar", i/data.length); // GUI: progress
-    if (i < data.length) {
+    bar("convertBar", i/maxsamples); // GUI: progress
+    if (i < maxsamples) {
       setTimeout(loop, 0);
     } else {
       bar("convertBar", 1); // GUI: 100% progress
@@ -502,15 +540,35 @@ function convertSegments(renderedBuffer, settings) {
       console.log("scr: " + labels.scr +
         " relocated_start: " + labels.relocated_start);
       player_u8.set(stext, labels.scr - labels.relocated_start);
-      let bin = concatenate(Uint8Array,
-        player_u8, // player
-        ...parts, // sound segments
-      );
-      let max = Math.min(carMax(settings.media), settings.maxbytes);
-      bin = bin.slice(0, max); // XXX Should never trigger if limiter in loop() is working
-      let type = getCarType(settings.media, bin.length);
-      let car = makecar(type, bin);
-      console.log("max: " + max +
+      let player0 =
+        settings.media == "atarimax" ? 0 :
+        settings.media == "megamax" ? 1 :
+        settings.media == "sic" ? 1 :
+        settings.media == "megamax" ? 1 :
+        settings.media == "xegs" ? 1 :
+        settings.media == "thecart" ? 1 :
+        1;
+      let max = Math.min(carMax(settings.media), settings.maxbytes, (parts.length + 1) * buflen);
+      let type = getCarType(settings.media, max);
+      let size = cartSize(type);
+      let bin = new Uint8Array(size);
+      let mediaoffset = player0 ? buflen : 0;
+      let mediaend = player0 ? size : size - buflen;
+      let player_offset = player0 ? 0 : size - buflen;
+      for (let part of parts) {
+        bin.set(part, mediaoffset);
+        mediaoffset += buflen;
+        if (mediaoffset >= mediaend) {
+          break;
+        }
+      }
+      bin.set(player_u8, player_offset);
+      if (!player0 && bin.length > size) {
+        text("convertMessage", "ERROR: Internal error: bad size");
+        bin = bin.slice(0, size); // XXX Should never trigger if limiter in loop() is working
+      }
+      car = makecar(type, bin);
+      console.log("max: " + max + " size: " + size +
         " type: " + type);
       settings.extension = ".car";
       zip_and_offer(car, settings);
@@ -527,11 +585,12 @@ function convertSegments(renderedBuffer, settings) {
   console.log("max: " + max + " maxhalf: " + maxhalf);
   let maxbytes = Math.min(
     cart ? carMax(settings.media) : 1e999,
-    settings.maxbytes,
-    stereo ? data.length >> 1 : data.length);
-  let maxsamples =
+    settings.maxbytes);
+  let maxsamples = Math.min(
     (stereo ? maxbytes >> 1 : maxbytes) *
-    (settings.method == "pcm4" ? 2 : 1);
+    (settings.method == "pcm4" ? 2 : 1),
+    data.length);
+  console.log("maxbytes: " + maxbytes + " maxsamples: " + maxsamples);
   let i = 0; // source index
   let loop = function() {
     let k; // page offset
