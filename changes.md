@@ -10,3 +10,5 @@ First release
 * Fix 4MB limit
 * Use hardware calibration for PCM4+4 by default
   * Altirra-3.10-test28 now matches hardware
+* Fix Artist field
+* Fix Duration localStorage
