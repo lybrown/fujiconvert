@@ -279,7 +279,7 @@ function splash(settings, labels) {
     text = text + trunc(" Title: " + settings.title, 40);
   }
   if (settings.artist) {
-    text = text + trunc(" Artist: " + settings.title, 40);
+    text = text + trunc(" Artist: " + settings.artist, 40);
   }
   if (!settings.title && !settings.artist) {
     text = text + trunc(" File: " + settings.filename, 40);
