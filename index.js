@@ -147,7 +147,8 @@ function getSettings() {
   return settings;
 }
 function readSingleFile(e) {
-  let file = e.target.files[0];
+  let fileinput = document.getElementById("file-input");
+  let file = fileinput.files[0];
   if (!file) {
     return;
   }
@@ -482,10 +483,12 @@ function convertSegments(renderedBuffer, settings) {
       settings.extension = ".xex";
       zip_and_offer(xex, settings);
     } else if (cart) {
-      player_u8.set(settings.scr - settings.relocated_start, stext);
+      console.log("scr: " + labels.scr +
+        " relocated_start: " + labels.relocated_start);
+      player_u8.set(stext, labels.scr - labels.relocated_start);
       let bin = concatenate(Uint8Array,
         player_u8, // player
-        ...pieces, // sound segments
+        ...parts, // sound segments
       );
       let max = carMax(settings.media);
       bin = bin.slice(0, max);
@@ -584,11 +587,13 @@ function offerDownload(name, blob) {
 }
 
 function init() {
+  readLocalStorage();
+  document.getElementById("reconvert").
+    addEventListener("click", readSingleFile, false);
   document.getElementById("file-input").
     addEventListener("change", readSingleFile, false);
   document.getElementById("settings").
     addEventListener("change", getSettings, false);
-  readLocalStorage();
   getSettings();
 }
 

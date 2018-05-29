@@ -314,10 +314,10 @@ nextbank2
     jmp play
 initbank
     mva #0 bank
-    rts
+    jmp nextbank
 >>> } elsif ($xegs or $megacart) {
 prevbank
-    :3 dec bank
+    :4 dec bank
 nextbank
     ldx bank
     stx HPOSP2
@@ -330,10 +330,10 @@ nextbank
     jmp play
 initbank
     mva #0 bank
-    rts
+    jmp nextbank
 >>> } elsif ($atarimax or $megamax) {
 prevbank
-    :3 dec bank
+    :4 dec bank
 nextbank
     ldx bank
     stx HPOSP2
@@ -346,10 +346,10 @@ nextbank
     jmp play
 initbank
     mva #0 bank
-    rts
+    jmp nextbank
 >>> } elsif ($sic) {
 prevbank
-    :3 dec bank
+    :4 dec bank
     ldy #0
 nextbank
     lda bank
@@ -364,18 +364,20 @@ nextbank
     jmp play
 initbank
     mva #0 bank
-    rts
+    jmp nextbank
 >>> } elsif ($thecart) {
 prevbank
     lda $D5A0
     sta HPOSP2
-    php
     add #$80
     sta HPOSP3
-    dec $D5A0
-    plp
-    sne:dec $D5A1
-    jmp play
+    lda #$FC
+    add:sta $D5A0
+    lda #$FF
+    adc:sta $D5A1
+    jmp play0
+initbank
+    mwa #0 $D5A0
 nextbank
     mva $D5A0 HPOSP2
     add #$80
@@ -383,9 +385,6 @@ nextbank
     inc $D5A0
     sne:inc $D5A1
     jmp play
-initbank
-    mwa #1 $D5A0
-    rts
 >>> }
 
 
@@ -417,7 +416,7 @@ setpulse
     sta AUDF3+$10
 >>> }
     lda pindex
-    beq altirra
+    bne altirra
     mva #$0 COLBK
     mva #$F COLPM0
     rts
@@ -426,7 +425,7 @@ altirra
     mva #$0 COLPM0
     rts
 pindex
-    dta 1
+    dta 0
 paudf1
     dta 12,3
 paudf3
