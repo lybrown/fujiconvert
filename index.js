@@ -105,6 +105,7 @@ function getSettings() {
   let period = {
     "58kHz": 28,
     "48kHz": 34,
+    "47kHz": 35,
     "44kHz": 37,
     "34kHz": 48,
     "31kHz": 52,
@@ -681,4 +682,3 @@ function init() {
     innerText = version;
   getSettings();
 }
-

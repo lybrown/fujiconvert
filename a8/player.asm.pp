@@ -262,9 +262,9 @@ play
     lda SKSTAT ; 4 cycles
     ; and #4 ; 2 cycles NOTE: Cheat here to save cycles.
     ; NOTE: This means that shift and control will repeat the last action.
-    cmp:sta lastkey ; 6 cycles
+    cmp:sta lastkey ; 5 cycles
     bcc keydown ; 2 cycles
->>> nop($period - $cycles - 12);
+>>> nop($period - $cycles - 11);
     ; sample N-1
 donekey
 >>> my $cycles = sample($pages-1*$pages_per_sample, 0);
@@ -456,23 +456,23 @@ nop12
 >>>   my ($cycles) = @_;
 >>>   ++$nopcount;
 >>>   $nopsum += $cycles;
->>>   while ($cycles > 96) {
+>>>   while ($cycles >= 96) {
     jsr nop96
 >>>     $cycles -= 96;
 >>>   }
->>>   while ($cycles > 48) {
+>>>   while ($cycles >= 48) {
     jsr nop48
 >>>     $cycles -= 48;
 >>>   }
->>>   while ($cycles > 24) {
+>>>   while ($cycles >= 24) {
     jsr nop24
 >>>     $cycles -= 24;
 >>>   }
->>>   while ($cycles > 12) {
+>>>   while ($cycles >= 12) {
     jsr nop12
 >>>     $cycles -= 12;
 >>>   }
->>>   while ($cycles > 7) {
+>>>   while ($cycles >= 7) {
     rol NOP,x ; 7 cycles
 >>>     $cycles -= 7;
 >>>   }
