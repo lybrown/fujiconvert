@@ -144,7 +144,7 @@ KHZ15 equ 1<<0
 >>>     }
 >>>     return (20 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
 >>>   } elsif ($pwm) {
->>>     $maxhalf = (($period - 4 < 101) ? $period - 1 : 101) >> 1;
+>>>     $maxhalf = (($period - 4 < 101) ? $period - 4 : 101) >> 1;
 >>>     for my $dup (reverse (0 .. $dups)) {
     lda <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     sta AUDF1 ; 4 cycles
@@ -254,11 +254,11 @@ play
     ; samples 0 .. N-3
 >>> $pages_per_sample = ($stereo and ($pcm44 or $pwm or $covox)) ? 2 : 1;
 >>> for ($page = 0, $i = 0; $page < $pages-2*$pages_per_sample; $page += $pages_per_sample, ++$i) {
->>>   my $cycles = sample($page, 1);
+>>>   $cycles = sample($page, 1);
 >>>   nop($period - $cycles + ($pwm && $period == 52 && ($i&1)));
 >>> }
     ; sample N-2
->>> my $cycles = sample($pages-2*$pages_per_sample, 0);
+>>> $cycles = sample($pages-2*$pages_per_sample, 0);
     lda SKSTAT ; 4 cycles
     ; and #4 ; 2 cycles NOTE: Cheat here to save cycles.
     ; NOTE: This means that shift and control will repeat the last action.
@@ -267,7 +267,7 @@ play
 >>> nop($period - $cycles - 11);
     ; sample N-1
 donekey
->>> my $cycles = sample($pages-1*$pages_per_sample, 0);
+>>> $cycles = sample($pages-1*$pages_per_sample, 0);
     iny ; 2 cycles
 branch
     beq next ; 2 cycles +1 if taken same page
@@ -453,45 +453,48 @@ nop12
     rts
 
 >>> sub nop {
->>>   my ($cycles) = @_;
+>>>   ($cycles) = @_; # Don't use "my" here
+>>>   @nop = (
+>>>     96 => "jsr nop96",
+>>>     48 => "jsr nop48",
+>>>     24 => "jsr nop24",
+>>>     12 => "jsr nop12",
+>>>     7 => "inc NOP,x",
+>>>     6 => "inc NOP",
+>>>     5 => "inc NOP0",
+>>>     4 => "lda NOP0,x",
+>>>     3 => "lda NOP0",
+>>>     2 => "nop",
+>>>   );
 >>>   ++$nopcount;
 >>>   $nopsum += $cycles;
->>>   while ($cycles >= 96) {
-    jsr nop96
->>>     $cycles -= 96;
+>>>   if ($cycles < 0) {
+>>>     $slow_cycles += $cycles;
+    ; slow by <<<-$cycles>>> cycles
 >>>   }
->>>   while ($cycles >= 48) {
-    jsr nop48
->>>     $cycles -= 48;
+>>>   if ($cycles == 1) {
+>>>     $fast_cycles += 1;
+    ; fast by 1 cycle
 >>>   }
->>>   while ($cycles >= 24) {
-    jsr nop24
->>>     $cycles -= 24;
->>>   }
->>>   while ($cycles >= 12) {
-    jsr nop12
->>>     $cycles -= 12;
->>>   }
->>>   while ($cycles >= 7) {
-    rol NOP,x ; 7 cycles
->>>     $cycles -= 7;
->>>   }
->>>   if ($cycles == 6) {
-    rol NOP ; 6 cycles
->>>   } elsif ($cycles == 5) {
-    rol NOP0 ; 5 cycles
->>>   } elsif ($cycles == 4) {
-    lda NOP ; 4 cycles
->>>   } elsif ($cycles == 3) {
-    and NOP0 ; 3 cycles
->>>   } elsif ($cycles == 2) {
-    nop ; 2 cycles
+>>>   for ($i = 0; $i < @nop; $i += 2) {
+>>>     return if $cycles <= 0;
+>>>     while ($cycles >= $nop[$i]+2 || $cycles == $nop[$i]) {
+>>>       $cycles -= $nop[$i];
+    <<<$nop[$i+1]>>>
+>>>     }
 >>>   }
 >>> }
 
 >>> if ($nopsum / $nopcount < -2) {
-; mark as slow player if average sync is missing by more than 2 cycles
+; Mark as slow player if average sync is missing by more than 2 cycles
+; Average nop cycles: <<<$nopsum / $nopcount>>>
 slowplayer equ 1
+>>> }
+>>> if ($slow_cycles) {
+slow_cycles equ <<<-$slow_cycles>>>
+>>> }
+>>> if ($fast_cycles) {
+fast_cycles equ <<<$fast_cycles>>>
 >>> }
 
 >>> if ($ram) {

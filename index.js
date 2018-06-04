@@ -94,6 +94,13 @@ function writeLocalStorage() {
     localStorage.setItem(texts[i], form[texts[i]].value);
   }
 }
+function get_player_name(settings) {
+  return "player-" +
+    settings.media + "-" +
+    settings.method + "-" +
+    settings.channels + "-" +
+    settings.period;
+}
 function getSettings() {
   writeLocalStorage();
   let form = document.getElementById("settings");
@@ -150,11 +157,30 @@ function getSettings() {
     }
   }
   settings.period = period[settings.frequency];
-  if (settings.channels == "stereo") {
-    settings.period = clamp(settings.period, period["34kHz"], 999);
-  }
-  if (settings.method == "pwm") {
-    settings.period = clamp(settings.period, period["31kHz"], 999);
+//  if (settings.method == "pwm") {
+//    settings.period = clamp(settings.period, period["31kHz"], 999);
+//  }
+  // Don't use players with missed cycles
+  let player_name = "player-" +
+    settings.media + "-" +
+    settings.method + "-" +
+    settings.channels + "-" +
+    settings.period;
+  let valid_periods = Object.values(period).sort();
+  for (;;) {
+    let player_name = get_player_name(settings);
+    console.log(`player_name: ${player_name}`);
+    let labels = players[player_name].labels;
+    if ((!labels.slow_cycles || labels.slow_cycles < 5) &&
+        (!labels.fast_cycles || labels.fast_cycles < 5)) {
+      break;
+    }
+    let next = valid_periods.indexOf(settings.period) + 1;
+    if (next < valid_periods.length) {
+      settings.period = valid_periods[next];
+    } else {
+      break;
+    }
   }
 
   // Show cosntrained settings
@@ -304,6 +330,7 @@ function splash(settings, labels) {
   if (settings.media != "emulator") {
     text = text + trunc(" \x1E - Rewind", 40);
     text = text + trunc(" \x1F - Fast Forward", 40);
+    text = text + trunc(" DEL - Play from beginning", 40);
   }
   text = text + trunc(" Press any key to start playback", 40);
   text = trunc(text, labels.scrlen);
@@ -475,12 +502,7 @@ function convertIDE(renderedBuffer, settings) {
   loop();
 }
 function convertSegments(renderedBuffer, settings) {
-  let player_name = "player-" +
-    settings.media + "-" +
-    settings.method + "-" +
-    settings.channels + "-" +
-    settings.period;
-  settings.player_name = player_name;
+  settings.player_name = player_name = get_player_name(settings);
   console.log("player_name: " + player_name);
   if (!players[player_name]) {
     text("convertMessage", "ERROR: Unsupported player: " + player_name);
@@ -549,9 +571,11 @@ function convertSegments(renderedBuffer, settings) {
         settings.media == "xegs" ? 1 :
         settings.media == "thecart" ? 1 :
         1;
-      let max = Math.min(carMax(settings.media), settings.maxbytes, (parts.length + 1) * buflen);
+      let datalen = (parts.length + 1) * buflen;
+      let max = Math.min(carMax(settings.media), settings.maxbytes, datalen);
       let type = getCarType(settings.media, max);
-      let size = cartSize(type);
+      let fullsize = cartSize(type);
+      let size = player0 ? datalen : fullsize;
       let bin = new Uint8Array(size);
       let mediaoffset = player0 ? buflen : 0;
       let mediaend = player0 ? size : size - buflen;
