@@ -12,3 +12,11 @@ First release
   * Altirra-3.10-test28 now matches hardware
 * Fix Artist field
 * Fix Duration localStorage
+
+0.2.1
+-----
+
+* Loop at end of audio
+* Support for XEGS cartridges
+* Simple dither
+

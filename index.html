@@ -87,10 +87,18 @@
 <div>
 <div>
     Playback Method:<br>
-    <input type="radio" name="method" value="pcm44" checked> PCM4+4<br>
+    <input type="radio" name="method" value="pcm4+4" checked> PCM4+4<br>
     <input type="radio" name="method" value="pcm4"> PCM4<br>
     <input type="radio" name="method" value="pwm"> PWM<br>
-    <input type="radio" name="method" value="covox"> Covox<br>
+    <input type="radio" name="method" value="covox"> Covox
+    <!--
+    <select>
+    <option value="D600">$D600</option>
+    <option value="D600">$D700</option>
+    </select>
+    -->
+    at $D600
+    <br>
 </div>
 <div>
     Channels:<br>
@@ -108,12 +116,13 @@
     <!-- <input type="radio" name="frequency" value="48kHz"> 48kHz<br> -->
     <input type="radio" name="frequency" value="47kHz"> 47kHz<br>
     <input type="radio" name="frequency" value="44kHz"> 44kHz<br>
-    <input type="radio" name="frequency" value="34kHz" checked> 34kHz<br>
+    <input type="radio" name="frequency" value="33kHz" checked> 33kHz<br>
     <input type="radio" name="frequency" value="31kHz"> 31kHz<br>
     <input type="radio" name="frequency" value="22kHz"> 22kHz<br>
     <input type="radio" name="frequency" value="15kHz"> 15kHz<br>
     <input type="radio" name="frequency" value="8kHz"> 8kHz<br>
 </div>
+    Dither: <input type="checkbox" id="dither"></br>
     Gain: <input type="text" name="gain" value="1.5"><br>
     Offset: <input type="text" name="offset" value="0"><br>
     Duration: <input type="text" name="duration" value="-1"><br>
@@ -128,13 +137,11 @@
     <input type="radio" name="media" value="atarimax"> Atarimax<br>
     <input type="radio" name="media" value="megamax"> MegaMax<br>
     <input type="radio" name="media" value="megacart"> MegaCart<br>
-<!--
     <input type="radio" name="media" value="xegs"> XEGS<br>
-    <input type="radio" name="media" value="sic"> SIC!<br>
--->
+    <!-- <input type="radio" name="media" value="sic"> SIC!<br> -->
 </div>
 <div>
-    Max size:<br>
+    Max size:
     <select name="maxsize">
     <option value="16K"> 16K<br>
     <option value="80K"> 80K<br>

@@ -6,7 +6,11 @@ pages equ <<<$pages>>>
 dummy equ window+pages ; insure window and pages are marked used in .lab file
 NOP0 equ 0
 NOP equ $FE00
-lastkey equ $82
+    org $80
+; bank
+    org *+2
+diff org *+2
+lastkey org *+1
 
 >>> if ($cart) {
     opt f+h-
@@ -47,6 +51,8 @@ main
     ldx bankindex
     mva #0 banks,x
 >>> }
+
+    ; splash screen
     jsr splash
 
     ; disable interrupts, ANTIC, POKEY
@@ -62,8 +68,8 @@ main
     mva #$4 COLPM3 ; progress indicator
     mva #$FF GRAFP0
     sta GRAFP1
-    mva #1 GRAFP2
-    mva #1 GRAFP3
+    mva #$10 GRAFP2
+    mva #$10 GRAFP3
     mva #0 HPOSP0
     sta HPOSP1
     sta HPOSP2
@@ -124,9 +130,13 @@ KHZ15 equ 1<<0
 >>> sub sample {
 >>>   ($page, $hpos) = @_; # XXX DONT use "my" here. Messes up interp().
 >>>   # Disable waveform display for high frequencies
->>>   $hpos = 0 if $stereo and $period < 49 or $period < 37;
+>>>   $hpos = 0 if ($stereo and $period < 49) or $period < 37;
 >>>   # There's always enough time for hpos when the period is >= 105
 >>>   $hpos = 1 if $period >= 105;
+>>>   # Covox has enough time for hpos when period is >= 35
+>>>   $hpos = 1 if $covox and $period >= 35;
+>>>   # Always time if mono and period is >= 35
+>>>   $hpos = 1 if not $stereo and $period >= 35;
 >>>   if ($pcm44) {
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva hi,x AUDC3 ; 8 cycles
@@ -144,7 +154,7 @@ KHZ15 equ 1<<0
 >>>     }
 >>>     return (20 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
 >>>   } elsif ($pwm) {
->>>     $maxhalf = (($period - 4 < 101) ? $period - 4 : 101) >> 1;
+>>>     $maxhalf = (($period - 5 < 101) ? $period - 5 : 101) >> 1;
 >>>     for my $dup (reverse (0 .. $dups)) {
     lda <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     sta AUDF1 ; 4 cycles
@@ -185,7 +195,7 @@ KHZ15 equ 1<<0
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva hi,x AUDC1 ; 8 cycles
 >>>       if ($hpos) {
-    adc #$6F-<<<$maxhalf>>>-<<<$stereo ? 30 : 0>>> ; 2 cycles
+    add #$6F-<<<$maxhalf>>>-<<<$stereo ? 30 : 0>>> ; 4 cycles
     sta HPOSP0 ; 4 cycles
 >>>       }
     mva lo,x AUDC1+$10 ; 8 cycles
@@ -193,20 +203,20 @@ KHZ15 equ 1<<0
     adc #$6F-<<<$maxhalf>>>+<<<$stereo ? 30 : 0>>> ; 2 cycles
     sta HPOSP1 ; 4 cycles
 >>>       }
->>>       return 20 + ($hpos ? 12 : 0);
+>>>       return 20 + ($hpos ? 14 : 0);
 >>>     }
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva hi,x AUDC1 ; 8 cycles
     ; this HPOS is always allowed
-    adc #$6F-<<<$maxhalf>>>-<<<$stereo ? 30 : 0>>> ; 2 cycles
+    add #$6F-<<<$maxhalf>>> ; 4 cycles
     sta HPOSP0 ; 4 cycles
->>>     nop($period - 14);
+>>>     nop($period - 20);
     mva lo,x AUDC1 ; 8 cycles
 >>>     if ($hpos) {
-    adc #$6F-<<<$maxhalf>>>+<<<$stereo ? 30 : 0>>> ; 2 cycles
+    adc #$6F-<<<$maxhalf>>> ; 2 cycles
     sta HPOSP0 ; 4 cycles
 >>>     }
->>>     return 14 + ($hpos ? 6 : 0);
+>>>     return 8 + ($hpos ? 6 : 0);
 >>>   }
 >>> }
 
@@ -243,7 +253,11 @@ continue ; called by loader
 >>> }
 
 >>> if ($ram or $cart) {
+>>>   if ($thecart) {
+bank equ $D5A0
+>>>   } else {
 bank equ $80
+>>>   }
     ; init bank
     jmp initbank
 >>> }
@@ -251,26 +265,52 @@ bank equ $80
 play0
     ldy #0 ; 2 cycles
 play
-    ; samples 0 .. N-3
+    ;------------------
+    ; samples 0 .. N-5
 >>> $pages_per_sample = ($stereo and ($pcm44 or $pwm or $covox)) ? 2 : 1;
->>> for ($page = 0, $i = 0; $page < $pages-2*$pages_per_sample; $page += $pages_per_sample, ++$i) {
+>>> for ($page = 0, $i = 0; $page < $pages-5*$pages_per_sample; $page += $pages_per_sample, ++$i) {
 >>>   $cycles = sample($page, 1);
 >>>   nop($period - $cycles + ($pwm && $period == 52 && ($i&1)));
 >>> }
+    ;------------------
+    ; sample N-5
+>>> $cycles = sample($pages-5*$pages_per_sample, 0);
+    lda bank ; 3 cycles +1 if thecart
+endlo
+    eor #$FF ; 2 cycles
+    sta diff ; 3 cycles
+>>> nop($period - $cycles - 8 - ($thecart ? 1 : 0) + ($pwm && $period == 52));
+    ;------------------
+    ; sample N-4
+>>> $cycles = sample($pages-4*$pages_per_sample, 0);
+    lda bank+1 ; 3 cycles +1 if thecart
+endhi
+    eor #$FF ; 2 cycles
+    sta diff+1 ; 3 cycles
+>>> nop($period - $cycles - 8 - ($thecart ? 1 : 0));
+    ;------------------
+    ; sample N-3
+>>> $cycles = sample($pages-3*$pages_per_sample, 0);
+    lda diff ; 3
+    ora diff+1 ; 3
+    sne:jmp initbank ; 3 cycles
+>>> nop($period - $cycles - 9 + ($pwm && $period == 52));
+    ;------------------
     ; sample N-2
 >>> $cycles = sample($pages-2*$pages_per_sample, 0);
     lda SKSTAT ; 4 cycles
     ; and #4 ; 2 cycles NOTE: Cheat here to save cycles.
     ; NOTE: This means that shift and control will repeat the last action.
-    cmp:sta lastkey ; 5 cycles
+    cmp:sta lastkey ; 6 cycles
     bcc keydown ; 2 cycles
->>> nop($period - $cycles - 11);
+>>> nop($period - $cycles - 12);
+    ;------------------
     ; sample N-1
 donekey
 >>> $cycles = sample($pages-1*$pages_per_sample, 0);
     iny ; 2 cycles
-branch
     beq next ; 2 cycles +1 if taken same page
+branch
 >>> nop($period - $cycles - 7 + ($pwm && $period == 52));
     jmp play ; 3 cycles
 next
@@ -292,8 +332,10 @@ keydown
     beq prevbank
     cmp #7 ; '*' Right Arrow
     beq nextbank
-    cmp #52 ; 'DEL'
+    cmp #52 ; DEL
     beq initbank
+    cmp #33 ; Space
+    beq pauseplay
 >>> }
     jmp donekey
 
@@ -319,7 +361,7 @@ nextbank2
     inc bank
     jmp play
 initbank
-    mva #0 bank
+    mwa #0 bank
     tay
     jmp nextbank
 >>> } elsif ($xegs or $megacart) {
@@ -336,7 +378,7 @@ nextbank
     stx bank
     jmp play
 initbank
-    mva #1 bank
+    mwa #<<<$xegs ? 0 : 1>>> bank
     ldy #0
     jmp nextbank
 >>> } elsif ($atarimax or $megamax) {
@@ -353,7 +395,7 @@ nextbank
     stx bank
     jmp play
 initbank
-    mva #<<<$megamax ? 1 : 0>>> bank
+    mwa #<<<$megamax ? 1 : 0>>> bank
     ldy #0
     jmp nextbank
 >>> } elsif ($sic) {
@@ -372,7 +414,7 @@ nextbank
     inc bank
     jmp play
 initbank
-    mva #1 bank
+    mwa #1 bank
     ldy #0
     jmp nextbank
 >>> } elsif ($thecart) {
@@ -390,13 +432,26 @@ initbank
     mwa #0 $D5A0 ; next bank will advance to 1, so zero is OK here
     tay
 nextbank
-    mva $D5A0 HPOSP2
-    add #$80
-    sta HPOSP3
-    inc $D5A0
-    sne:inc $D5A1
-    jmp play
+    mva $D5A0 HPOSP2 ; 8 cycles
+    add #$80 ; 2 cycles
+    sta HPOSP3 ; 4 cycles
+    inc $D5A0 ; 6 cycles
+    sne:inc $D5A1 ; 3 cycles
+    jmp play ; 3 cycles
+>>> } elsif  ($emulator) {
+initbank
+prevbank
+nextbank
+    jmp donekey
 >>> }
+pauseplay
+    lda SKSTAT
+    cmp:sta lastkey
+    bcs pauseplay
+    lda KBCODE
+    cmp #33
+    bne pauseplay
+    jmp donekey
 
 
 >>> if ($pcm44) {
@@ -455,16 +510,16 @@ nop12
 >>> sub nop {
 >>>   ($cycles) = @_; # Don't use "my" here
 >>>   @nop = (
->>>     96 => "jsr nop96",
->>>     48 => "jsr nop48",
->>>     24 => "jsr nop24",
->>>     12 => "jsr nop12",
->>>     7 => "inc NOP,x",
->>>     6 => "inc NOP",
->>>     5 => "inc NOP0",
->>>     4 => "lda NOP0,x",
->>>     3 => "lda NOP0",
->>>     2 => "nop",
+>>>     96 => "jsr nop96 ; 96 cycles",
+>>>     48 => "jsr nop48 ; 48 cycles",
+>>>     24 => "jsr nop24 ; 24 cycles",
+>>>     12 => "jsr nop12 ; 12 cycles",
+>>>     7 => "inc NOP,x ; 7 cycles",
+>>>     6 => "inc NOP ; 6 cycles",
+>>>     5 => "inc NOP0 ; 5 cycles",
+>>>     4 => "lda NOP0,x ; 4 cycles",
+>>>     3 => "lda NOP0 ; 3 cycles",
+>>>     2 => "nop ; 2 cycles",
 >>>   );
 >>>   ++$nopcount;
 >>>   $nopsum += $cycles;
@@ -519,7 +574,7 @@ dummyquiet equ quiet
 cart2ram_end
 cartstart
     ; copy code to ram
-    mwa #cart2ram_start $80
+    mwa #cart2ram_start+<<<$xegs ? '$2000' : 0>>> $80
     mwa #$2000 $82
     ldx #[[cart2ram_end-cart2ram_start]>>8]+1
     ldy #0
@@ -536,8 +591,8 @@ null
 
     ;========================================================
     org <<<$window>>>+<<<$pages>>>*$100-6
-    dta a(cartstart) ; start
+    dta a(cartstart+<<<$xegs ? '$2000' : 0>>>) ; start
     dta 0 ; no left cart  XXX should be 1 for 16K carts?
     dta 4 ; no DOS
-    dta a(null) ; init
+    dta a(null+<<<$xegs ? '$2000' : 0>>>) ; init
 >>> } else { die; }

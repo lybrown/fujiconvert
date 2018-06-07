@@ -1,5 +1,5 @@
 all:
-	make -C a8 build/players.json
+	make -C a8 build/players.json params="$(params)"
 	make players.js
 
 players.js: a8/build/players.json

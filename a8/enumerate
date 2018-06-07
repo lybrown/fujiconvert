@@ -17,7 +17,7 @@ my %media = (
     emulator => {window => '$4000', pages => 128},
 );
 
-my @methods = qw(pcm44 pcm4 pwm covox);
+my @methods = qw(pcm4+4 pcm4 pwm covox);
 
 sub usage {
     die "Usage: enumerate [-media X] [-method X] [-channels X] [-period X]\n";
@@ -36,7 +36,7 @@ sub main {
         media => [sort keys %media],
         method => [@methods],
         channels => [qw(mono stereo)],
-        period => [qw(35 37 48 52 74 105 210)],
+        period => [qw(35 37 50 52 74 105 210)],
     );
     GetOptions(
         "media=s@" => \&set,
@@ -54,7 +54,8 @@ sub main {
 		for my $period (reverse @{$args{period}}) {
                     my $fn = "player-$media-$method-$channels-$period.asm.pl";
                     open my $fh, ">$fn" or die "ERROR: Cannot open $fn: $!\n";
-		    print $fh "\$media='$media'; \$$media=1; \$cart=$cart; \$$method=1; \$$channels=1; \$period=$period;";
+                    my $methodmod = $method; $methodmod =~ s/\+//;
+		    print $fh "\$media='$media'; \$$media=1; \$cart=$cart; \$$methodmod=1; \$$channels=1; \$period=$period;";
                     for my $var (sort keys %{$media{$media}}) {
                         my $val = $media{$media}{$var};
                         if ($val =~ /\$/) {

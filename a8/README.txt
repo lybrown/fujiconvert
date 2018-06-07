@@ -27,6 +27,20 @@ nextsegment
   Emulator Stream
 
 
+Detect end of audio
+-------------------
+    lda bank ; 3
+    eor #<end ; 2
+    sta diff ; 3
+
+    lda bank+1 ; 3
+    eor #>end ; 2
+    sta diff+1 ; 3
+
+    lda diff ; 3
+    ora diff ; 3
+    jeq done ; 3
+
 
 play
 ====
