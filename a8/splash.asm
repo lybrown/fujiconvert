@@ -10,10 +10,12 @@ splash
     lda:rne VCOUNT
     mva #$22 DMACTL
 
+    lda SKSTAT
+    sta lastkey
 wait
     lda SKSTAT
-    and #4
-    beq splashdone
+    cmp:sta lastkey
+    bcc splashdone
     lda TRIG0
     beq splashdone
     lda CONSOL
@@ -22,6 +24,8 @@ wait
     bne splashdone
     jmp wait
 
+lastkey
+    dta 0
 splashdone
     rts
 

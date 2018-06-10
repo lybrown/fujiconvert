@@ -1,35 +1,45 @@
-// vim: ts=2:sts=2:sw=2
-let version = "0.2.1";
-function getRadio(radio) {
-  for (let i = 0; i < radio.length; ++i) {
-    if (radio[i].checked) {
-      return radio[i].value;
+// vim: ts=2:sts=2:sw=2:et
+let version = "0.2.2";
+function setElement(element, value) {
+  if (element instanceof RadioNodeList) {
+    for (let i = 0; i < element.length; ++i) {
+      if (element[i].value == value) {
+        element[i].checked = true;
+      }
     }
+  } else if (element instanceof HTMLSelectElement) {
+    for (let i = 0; i < element.length; ++i) {
+      if (element[i].value == value) {
+        element[i].selected = true;
+      }
+    }
+    return "NONE";
+  } else if (element.type == "checkbox") {
+    element.checked = value == "true";
+  } else if (element.type == "text") {
+    element.value = value;
   }
-  return "NONE";
 }
-function setRadio(radio, value) {
-  for (let i = 0; i < radio.length; ++i) {
-    if (radio[i].value == value) {
-      radio[i].checked = true;
+function getElement(element) {
+  if (element instanceof RadioNodeList) {
+    for (let i = 0; i < element.length; ++i) {
+      if (element[i].checked) {
+        return element[i].value;
+      }
     }
-  }
-}
-function getSelected(select) {
-  for (let i = 0; i < select.length; ++i) {
-    if (select[i].selected) {
-      return select[i].value;
+    return "NONE";
+  } else if (element instanceof HTMLSelectElement) {
+    for (let i = 0; i < element.length; ++i) {
+      if (element[i].selected) {
+        return element[i].value;
+      }
     }
+    return "NONE";
+  } else if (element.type == "checkbox") {
+    return element.checked;
+  } else if (element.type == "text") {
+    return element.value;
   }
-  return "NONE";
-}
-function setSelected(select, value) {
-  for (let i = 0; i < select.length; ++i) {
-    if (select[i].value == value) {
-      return select[i].selected = true;
-    }
-  }
-  return "NONE";
 }
 function bar(name, fraction) {
   let bar = document.getElementById(name);
@@ -52,26 +62,22 @@ function text(name, msg) {
   let message = document.getElementById(name);
   message.innerText = msg;
 }
+function formElements() {
+  return [
+    "method", "channels", "region", "frequency", "media",
+    "maxsize",
+    "dither",
+    "gain", "offset", "duration", "title", "artist",
+  ];
+}
 function readLocalStorage() {
   if (!localStorage.getItem("method")) {
     return;
   }
   let form = document.getElementById("settings");
-  let radios = ["method", "channels", "region", "frequency", "media"];
-  let selects = ["maxsize"];
-  let checks = ["dither"];
-  let texts = ["gain", "offset", "duration", "title", "artist"];
-  for (let i = 0; i < radios.length; ++i) {
-    setRadio(form[radios[i]], localStorage.getItem(radios[i]));
-  }
-  for (let i = 0; i < selects.length; ++i) {
-    setSelected(form[selects[i]], localStorage.getItem(selects[i]));
-  }
-  for (let i = 0; i < checks.length; ++i) {
-    form[checks[i]].checked = localStorage.getItem(checks[i]) == "true";
-  }
-  for (let i = 0; i < texts.length; ++i) {
-    form[texts[i]].value = localStorage.getItem(texts[i]);
+  let elements = formElements();
+  for (let i = 0; i < elements.length; ++i) {
+    setElement(form[elements[i]], localStorage.getItem(elements[i]));
   }
   if (!form.gain.value) {
     form.gain.value = 1.5;
@@ -85,21 +91,9 @@ function readLocalStorage() {
 }
 function writeLocalStorage() {
   let form = document.getElementById("settings");
-  let radios = ["method", "channels", "region", "frequency", "media"];
-  let selects = ["maxsize"];
-  let checks = ["dither"];
-  let texts = ["gain", "offset", "duration", "title", "artist"];
-  for (let i = 0; i < radios.length; ++i) {
-    localStorage.setItem(radios[i], getRadio(form[radios[i]]));
-  }
-  for (let i = 0; i < selects.length; ++i) {
-    localStorage.setItem(selects[i], getSelected(form[selects[i]]));
-  }
-  for (let i = 0; i < checks.length; ++i) {
-    localStorage.setItem(checks[i], form[checks[i]].checked);
-  }
-  for (let i = 0; i < texts.length; ++i) {
-    localStorage.setItem(texts[i], form[texts[i]].value);
+  let elements = formElements();
+  for (let i = 0; i < elements.length; ++i) {
+    localStorage.setItem(elements[i], getElement(form[elements[i]]));
   }
 }
 function get_player_name(settings) {
@@ -141,20 +135,11 @@ function getSettings() {
     "128M": 128 << 20,
     "unlimited": 1 << 30,
   };
-  let settings = {
-    method: getRadio(form["method"]),
-    channels: getRadio(form["channels"]),
-    region: getRadio(form["region"]),
-    frequency: getRadio(form["frequency"]),
-    media: getRadio(form["media"]),
-    maxsize: getSelected(form["maxsize"]),
-    dither: form["dither"].checked,
-    gain: form["gain"].value,
-    offset: form["offset"].value,
-    duration: form["duration"].value,
-    title: form["title"].value,
-    artist: form["artist"].value,
-  };
+  let settings = {};
+  let elements = formElements();
+  for (let i = 0; i < elements.length; ++i) {
+    settings[elements[i]] = getElement(form[elements[i]]);
+  }
 
   // Constraints
   if (settings.media == "ide") {
@@ -271,15 +256,18 @@ function decode(contents, settings) {
   let c = new AudioContext();
   busy("decodeBusy", 1);
   c.decodeAudioData(contents,function(buffer) {
-    myBuffer = buffer;
     let duration = settings.duration > 0 ?
         clamp(settings.duration, 0, buffer.duration) : buffer.duration;
     settings.duration = duration;
     let channels = settings.channels == "stereo" ? 2 : 1;
     let oc = new OfflineAudioContext(channels, settings.freq*duration, settings.freq);
+    let myBuffer = buffer;
+    if (settings.resample) {
+      myBuffer = oc.createBuffer(channels, settings.freq*duration, settings.freq);
+      resample(buffer, myBuffer);
+    }
     let source = oc.createBufferSource();
     let gainNode = oc.createGain();
-    // gainNode.gain.setValueAtTime(settings.gain, c.currentTime);
     gainNode.gain.value = settings.gain;
     source.buffer = myBuffer;
     source.connect(gainNode);
@@ -342,8 +330,9 @@ function splash(settings, labels) {
   if (settings.media != "emulator") {
     text = text + trunc(" \x1E - Rewind", 40);
     text = text + trunc(" \x1F - Fast Forward", 40);
-    text = text + trunc(" DEL - Play from beginning", 40);
     text = text + trunc(" Space - Pause/Play", 40);
+    text = text + trunc(" Del - Play from beginning", 40);
+    text = text + trunc(" Esc - Return to this splash screen", 40);
   }
   text = text + trunc(" Press any key to start playback", 40);
   text = trunc(text, labels.scrlen);
@@ -539,7 +528,6 @@ function convertSegments(renderedBuffer, settings) {
   data.fill(0, data.length-2);
   if (data2) { data2.fill(0, data.length-2); }
   let parts = [];
-  let bank = 0;
   let done = function() {
     let player_b64 = players[player_name].player;
     let player_u8 = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
@@ -587,9 +575,6 @@ function convertSegments(renderedBuffer, settings) {
       console.log("scr: " + labels.scr +
         " relocated_start: " + labels.relocated_start);
       player_u8.set(stext, labels.scr - labels.relocated_start);
-      // patch end bank
-      player_u8[labels.endlo+1 - labels.relocated_start] = bank & 0xFF;
-      player_u8[labels.endhi+1 - labels.relocated_start] = bank >> 8;
       let player0 =
         settings.media == "atarimax" ? 0 :
         settings.media == "megamax" ? 1 :
@@ -603,10 +588,10 @@ function convertSegments(renderedBuffer, settings) {
       let type = getCarType(settings.media, max);
       let fullsize = cartSize(type);
       let size = player0 ? datalen : fullsize;
-      let bin = new Uint8Array(size);
       let mediaoffset = player0 ? buflen : 0;
       let mediaend = player0 ? size : size - buflen;
       let player_offset = player0 ? 0 : size - buflen;
+      let bin = new Uint8Array(size);
       for (let part of parts) {
         bin.set(part, mediaoffset);
         mediaoffset += buflen;
@@ -614,7 +599,22 @@ function convertSegments(renderedBuffer, settings) {
           break;
         }
       }
+      // patch end bank
+      let endbank = parts.length - (player0 ? 0 : 1);
+      player_u8[labels.endlo+1 - labels.relocated_start] = endbank & 0xFF;
+      player_u8[labels.endhi+1 - labels.relocated_start] = endbank >> 8;
       bin.set(player_u8, player_offset);
+      console.log({
+        endbank:endbank,
+        datalen:datalen,
+        max:max,
+        type:type,
+        fullsize:fullsize,
+        size:size,
+        mediaoffset:mediaoffset,
+        mediaend:mediaend,
+        player_offset:player_offset,
+      });
       if (!player0 && bin.length > size) {
         text("convertMessage", "ERROR: Internal error: bad size");
         bin = bin.slice(0, size); // XXX Should never trigger if limiter in loop() is working
@@ -689,7 +689,6 @@ function convertSegments(renderedBuffer, settings) {
     }
     parts.push(part); // part done
     bar("convertBar", i/maxsamples); // GUI: progress
-    ++bank;
     if (i < maxsamples) {
       setTimeout(loop, 0);
     } else {

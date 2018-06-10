@@ -10,7 +10,6 @@ NOP equ $FE00
 ; bank
     org *+2
 diff org *+2
-lastkey org *+1
 
 >>> if ($cart) {
     opt f+h-
@@ -46,35 +45,7 @@ hi
 
     icl 'splash.asm'
 
-main
->>> if ($ram) {
-    ldx bankindex
-    mva #0 banks,x
->>> }
-
-    ; splash screen
-    jsr splash
-
-    ; disable interrupts, ANTIC, POKEY
-    sei
-    mva #0 NMIEN
-    sta DMACTL
-    sta AUDCTL
-
-    ; graphics
-    mva #$F COLPM0 ; channel 1
-    mva #$26 COLPM1 ; channel 2
-    mva #$4 COLPM2 ; progress indicator
-    mva #$4 COLPM3 ; progress indicator
-    mva #$FF GRAFP0
-    sta GRAFP1
-    mva #$10 GRAFP2
-    mva #$10 GRAFP3
-    mva #0 HPOSP0
-    sta HPOSP1
-    sta HPOSP2
-    sta HPOSP3
-
+reset
 >>> if ($covox) {
     ; init Covox
 >>> } else {
@@ -92,7 +63,40 @@ main
     sta:rpl AUDF1+$10,x-
 >>>   }
 >>> }
+    mva #0 HPOSP0
+    sta HPOSP1
+    sta HPOSP2
+    sta HPOSP3
+    rts
 
+main
+>>> if ($ram) {
+    ldx bankindex
+    mva #0 banks,x
+>>> }
+
+    ; splash screen
+    jsr reset
+    jsr splash
+
+    ; disable interrupts, ANTIC, POKEY
+    sei
+    mva #0 NMIEN
+    sta DMACTL
+    sta AUDCTL
+
+    ; graphics
+    mva #$F COLPM0 ; channel 1
+    mva #$26 COLPM1 ; channel 2
+    mva #$4 COLPM2 ; progress indicator
+    mva #$4 COLPM3 ; progress indicator
+    mva #$FF GRAFP0
+    sta GRAFP1
+    mva #$10 GRAFP2
+    mva #$10 GRAFP3
+
+    ; pokey
+    jsr reset
 >>> if ($pcm44) {
     ; 1.79Mhz for channel 1
 FAST1 equ 1<<6
@@ -117,7 +121,8 @@ KHZ15 equ 1<<0
 >>>   }
 >>> }
 
-    mva #0 lastkey
+    mva #{bne} detectkeyevent
+    mva #[keyup-[detectkeyevent+2]] detectkeyevent+1
 
 >>> if ($pcm44) {
     jsr setpulse
@@ -299,11 +304,10 @@ endhi
     ; sample N-2
 >>> $cycles = sample($pages-2*$pages_per_sample, 0);
     lda SKSTAT ; 4 cycles
-    ; and #4 ; 2 cycles NOTE: Cheat here to save cycles.
-    ; NOTE: This means that shift and control will repeat the last action.
-    cmp:sta lastkey ; 6 cycles
-    bcc keydown ; 2 cycles
->>> nop($period - $cycles - 12);
+    and #4 ; 2 cycles
+detectkeyevent
+    bne keyevent ; 2 cycles
+>>> nop($period - $cycles - 8);
     ;------------------
     ; sample N-1
 donekey
@@ -321,19 +325,29 @@ next
     rts ; return to loader
 >>> } else { die; }
 
+keyevent
+keyup
+    mva #{beq} detectkeyevent
+    mva #[keydown-[detectkeyevent+2]] detectkeyevent+1
+    jmp donekey
+
 keydown
+    mva #{bne} detectkeyevent
+    mva #[keyup-[detectkeyevent+2]] detectkeyevent+1
     lda KBCODE
 >>> if ($pcm44) {
     cmp #63 ; 'A'
-    beq toggle
+    sne:jmp toggle
 >>> }
 >>> if ($ram or $cart) {
     cmp #6 ; '+' Left Arrow
     beq prevbank
     cmp #7 ; '*' Right Arrow
     beq nextbank
-    cmp #52 ; DEL
+    cmp #52 ; Del
     beq initbank
+    cmp #28 ; Esc
+    jeq main
     cmp #33 ; Space
     beq pauseplay
 >>> }
@@ -385,11 +399,12 @@ initbank
 prevbank
     :4 dec bank
 nextbank
-    ldx bank
-    stx HPOSP2
-    txa
+    lda bank
+    sta HPOSP2
     add #$80
     sta HPOSP3
+    and #$7F ; don't disable the cart
+    tax
     sta $D500,x
     inx
     stx bank
@@ -446,11 +461,27 @@ nextbank
 >>> }
 pauseplay
     lda SKSTAT
-    cmp:sta lastkey
-    bcs pauseplay
+    and #4
+    beq pauseplay
+pauseplay2
+    lda SKSTAT
+    and #4
+    bne pauseplay2
     lda KBCODE
+>>> if ($ram or $cart) {
+    cmp #6 ; '+' Left Arrow
+    beq prevbank
+    cmp #7 ; '*' Right Arrow
+    beq nextbank
+    cmp #52 ; Del
+    beq initbank
+    cmp #28 ; Esc
+    jeq main
+>>> }
     cmp #33
     bne pauseplay
+    mva #{bne} detectkeyevent
+    mva #[keyup-[detectkeyevent+2]] detectkeyevent+1
     jmp donekey
 
 
