@@ -1,7 +1,6 @@
-build/players.json: player.asm.pl enumerate obx2json splash.asm ramdetect.asm hardware.asm
+build/players.json: player.asm.pl enumerate obx2json ramdetect.asm hardware.asm
 	mkdir -p build
 	cp -f hardware.asm build
-	cp -f splash.asm build
 	cp -f ramdetect.asm build
 	./enumerate $(params)
 	./obx2json build/player-*.obx $(out)

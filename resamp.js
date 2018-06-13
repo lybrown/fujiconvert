@@ -1,3 +1,5 @@
+async function resample(inbuf, outbuf) {
+}
 
 function resamp(x, indat, alim, fmax, fsr, wnwdth) {
   let i,j, r_g,r_w,r_a,r_snc,r_y;	// some local variables

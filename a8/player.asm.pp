@@ -43,9 +43,113 @@ hi
     icl 'ramdetect.asm'
 >>> }
 
-    icl 'splash.asm'
+;====================================
+; Splash sreen
+;====================================
+
+splash
+    jsr reset
+    ; disable interrupts, ANTIC, POKEY
+    sei
+    mva #0 NMIEN
+    sta DMACTL
+    sta AUDCTL
+    mwa #dlist DLISTL
+    mva #0 COLPF2
+    mva #15 COLPF1
+    lda:rne VCOUNT
+    mva #$22 DMACTL
+
+    lda SKSTAT
+    sta lastkey
+>>> if (not $emulator) {
+    lda loop
+    jmp showtoggle
+>>> }
+wait
+    lda SKSTAT
+    cmp:sta lastkey
+    bcc splashkeydown
+    lda TRIG0
+    beq splashdone
+    lda CONSOL
+    and #7
+    cmp #7
+    bne splashdone
+    jmp wait
+splashkeydown
+>>> if (not $emulator) {
+    lda KBCODE
+    cmp #0 ; 'L'
+    beq toggleloopstop
+>>> }
+splashdone
+    rts
+>>> if (not $emulator) {
+toggleloopstop
+    lda #1
+    eor:sta loop
+showtoggle
+    beq setstop
+setloop
+    ldx #3
+    mva:rpl looptxt,x screndtxt+15,x-
+    mwa #initbank loop_or_stop+3
+    jmp wait
+setstop
+    ldx #3
+    mva:rpl stoptxt,x screndtxt+15,x-
+    mwa #main loop_or_stop+3
+    jmp wait
+loop
+    dta 1
+>>> }
+
+lastkey
+    dta 0
+
+dlist
+    :6 dta $70
+lms
+    dta $42,a(scr)
+    :20 dta 2
+    dta $41,a(dlist)
+scr
+    ;     0123456789012345678901234567890123456789
+    :40*20 dta 0
+    ; Filled in by javascript
+scrlen equ *-scr
+>>> if ($emulator) {
+    :40 dta d' '
+completetxt
+    dta d' Playback complete.                     '
+    dta d' Press any key to reboot.               '
+complete
+    mwa #completetxt lms+1
+    ldx #18
+    lda #$70
+    sta:rpl lms+4,x-
+    jsr splash
+    jmp ($FFFC) ; Reboot?
+>>> } else {
+screndtxt
+    dta d' End of audio: LOOP                     '
+looptxt
+    dta d'LOOP'
+stoptxt
+    dta d'STOP'
+>>> }
+
+;====================================
+; Player
+;====================================
 
 reset
+    mva #0 HPOSP0
+    sta HPOSP1
+    sta HPOSP2
+    sta HPOSP3
+resetsound
 >>> if ($covox) {
     ; init Covox
 >>> } else {
@@ -63,40 +167,9 @@ reset
     sta:rpl AUDF1+$10,x-
 >>>   }
 >>> }
-    mva #0 HPOSP0
-    sta HPOSP1
-    sta HPOSP2
-    sta HPOSP3
     rts
 
-main
->>> if ($ram) {
-    ldx bankindex
-    mva #0 banks,x
->>> }
-
-    ; splash screen
-    jsr reset
-    jsr splash
-
-    ; disable interrupts, ANTIC, POKEY
-    sei
-    mva #0 NMIEN
-    sta DMACTL
-    sta AUDCTL
-
-    ; graphics
-    mva #$F COLPM0 ; channel 1
-    mva #$26 COLPM1 ; channel 2
-    mva #$4 COLPM2 ; progress indicator
-    mva #$4 COLPM3 ; progress indicator
-    mva #$FF GRAFP0
-    sta GRAFP1
-    mva #$10 GRAFP2
-    mva #$10 GRAFP3
-
-    ; pokey
-    jsr reset
+initsound
 >>> if ($pcm44) {
     ; 1.79Mhz for channel 1
 FAST1 equ 1<<6
@@ -120,6 +193,36 @@ KHZ15 equ 1<<0
     mva #$50 AUDCTL+$10
 >>>   }
 >>> }
+    rts
+
+main
+>>> if ($ram) {
+    ldx bankindex
+    mva #0 banks,x
+>>> }
+
+    ; splash screen
+    jsr splash
+
+    ; disable interrupts, ANTIC, POKEY
+    sei
+    mva #0 NMIEN
+    sta DMACTL
+    sta AUDCTL
+
+    ; graphics
+    mva #$F COLPM0 ; channel 1
+    mva #$26 COLPM1 ; channel 2
+    mva #$4 COLPM2 ; progress indicator
+    mva #$4 COLPM3 ; progress indicator
+    mva #$FF GRAFP0
+    sta GRAFP1
+    mva #$10 GRAFP2
+    mva #$10 GRAFP3
+
+    ; pokey
+    jsr reset
+    jsr initsound
 
     mva #{bne} detectkeyevent
     mva #[keyup-[detectkeyevent+2]] detectkeyevent+1
@@ -298,7 +401,8 @@ endhi
 >>> $cycles = sample($pages-3*$pages_per_sample, 0);
     lda diff ; 3
     ora diff+1 ; 3
-    sne:jmp initbank ; 3 cycles
+loop_or_stop
+    sne:jmp <<<$emulator ? "complete" : "initbank">>> ; 3 cycles
 >>> nop($period - $cycles - 9 + ($pwm && $period == 52));
     ;------------------
     ; sample N-2
@@ -460,6 +564,7 @@ nextbank
     jmp donekey
 >>> }
 pauseplay
+    jsr resetsound
     lda SKSTAT
     and #4
     beq pauseplay
@@ -482,6 +587,7 @@ pauseplay2
     bne pauseplay
     mva #{bne} detectkeyevent
     mva #[keyup-[detectkeyevent+2]] detectkeyevent+1
+    jsr initsound
     jmp donekey
 
 
@@ -590,11 +696,7 @@ fast_cycles equ <<<$fast_cycles>>>
     run main
     ini detectram
 >>> } elsif ($emulator) {
-quiet
-    lda #0
-    ldx #$1F
-    sta:rpl AUDF1,x-
-    jmp *
+quiet equ complete
 dummyquiet equ quiet
     ; ini will be added by javascript
 >>> } elsif ($cart) {
