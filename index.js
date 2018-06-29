@@ -64,7 +64,8 @@ function text(name, msg) {
 }
 function formElements() {
   return [
-    "method", "channels", "region", "frequency", "media",
+    "method", "channels", "region", "frequency", "resampling_effort",
+    "media",
     "maxsize",
     "dither",
     "gain", "offset", "duration", "title", "artist",
@@ -205,7 +206,7 @@ function readSingleFile(e) {
 
   // Reset indicators
   bar("readBar", 0);
-  busy("decodeBusy", 0);
+  bar("decodeBar", 0);
   bar("convertBar", 0);
   busy("zipBusy", 0);
   text("decodeMessage", "");
@@ -254,34 +255,104 @@ function concatenate(resultConstructor, ...arrays) {
 
 function decode(contents, settings) {
   let c = new AudioContext();
-  busy("decodeBusy", 1);
-  c.decodeAudioData(contents,function(buffer) {
-    let duration = settings.duration > 0 ?
-        clamp(settings.duration, 0, buffer.duration) : buffer.duration;
-    settings.duration = duration;
-    let channels = settings.channels == "stereo" ? 2 : 1;
-    let oc = new OfflineAudioContext(channels, settings.freq*duration, settings.freq);
-    let myBuffer = buffer;
-    if (settings.resample) {
-      myBuffer = oc.createBuffer(channels, settings.freq*duration, settings.freq);
-      resample(buffer, myBuffer);
-    }
-    let source = oc.createBufferSource();
-    let gainNode = oc.createGain();
-    gainNode.gain.value = settings.gain;
-    source.buffer = myBuffer;
-    source.connect(gainNode);
-    gainNode.connect(oc.destination);
-    source.start(0, settings.offset, duration);
-    oc.startRendering().then(function(renderedBuffer) {
-      console.log("Rendering completed successfully");
-      busy("decodeBusy", 2);
-      convert(renderedBuffer, settings);
-    });
+  bar("decodeBar", 0);
+  c.decodeAudioData(contents, function(buffer) {
+    resample(c, buffer, settings);
   }, function(e) {
-    busy("decodeBusy", 0);
     text("decodeMessage", "Decode Error: " + e);
   });
+}
+
+function resample(c, inbuffer, settings) {
+  let induration = inbuffer.duration - settings.offset;
+  if (induration < 0) {
+    text("decodeMessage", "Offset (" + settings.offset +
+      ") is larger than sound duration (" + inbuffer.duration + ")");
+    return;
+  }
+  settings.duration = settings.duration > 0 ?
+      Math.min(settings.duration, induration) : induration;
+  let inrate = inbuffer.sampleRate;
+  let outrate = settings.freq;
+  let outchannels = settings.channels == "stereo" ? 2 : 1;
+  let outframecount = settings.duration * outrate;
+  let outlength = outframecount; // * outchannels?
+  let outbuffer = c.createBuffer(outchannels, outlength, inrate); // outrate!
+  let xstep = inrate / outrate;
+  let fmax = Math.min(inrate, outrate) * 0.45; // Max frequency allowed
+  let inchannels = inbuffer.numberOfChannels;
+  let alim = inbuffer.length;
+  let indata = inbuffer.getChannelData(0);
+  let indata2 = inchannels > 1 ? inbuffer.getChannelData(1) : undefined;
+  let outdata = outbuffer.getChannelData(0);
+  let outdata2 = outchannels > 1 ? outbuffer.getChannelData(1) : undefined;
+  let gain = settings.gain;
+  let width =
+    settings.resampling_effort == "ultra" ? 1028 :
+    settings.resampling_effort == "high" ? 256 :
+    settings.resampling_effort == "medium" ? 128 :
+    settings.resampling_effort == "low" ? 16 :
+    1;
+  let oi = 0;
+  let oo = settings.offset * inrate;
+  console.log({
+    inrate:inrate,
+    outrate:outrate,
+    outchannels:outchannels,
+    outframecount:outframecount,
+    outlength:outlength,
+    xstep:xstep,
+    fmax:fmax,
+    inchannels:inchannels,
+    alim:alim,
+    gain:gain,
+    width:width,
+  });
+  let done = function() {
+    console.log("Resampling completed successfully");
+    convert(outbuffer, settings);
+  };
+  let func = width == 1 ? (i, data) => data[i|0] : resamp;
+  let loop = function() {
+    let chunksteps = Math.min(outframecount - oi, 10000);
+    if (outchannels > 1 && inchannels > 1) {
+      for (let i = 0; i < chunksteps; ++i) {
+        let ii = oo + oi * xstep;
+        outdata[oi] = gain * func(ii, indata, alim, fmax, inrate, width);
+        outdata2[oi] = gain * func(ii, indata2, alim, fmax, inrate, width);
+        ++oi;
+      }
+    } else if (outchannels > 1) {
+      for (let i = 0; i < chunksteps; ++i) {
+        let ii = oo + oi * xstep;
+        outdata[oi] = outdata2[oi] =
+          gain * func(ii, indata, alim, fmax, inrate, width);
+        ++oi;
+      }
+    } else if (inchannels > 1) {
+      for (let i = 0; i < chunksteps; ++i) {
+        let ii = oo + oi * xstep;
+        outdata[oi] = 0.5 * gain * (
+          func(ii, indata, alim, fmax, inrate, width) + 
+          func(ii, indata2, alim, fmax, inrate, width));
+        ++oi;
+      }
+    } else {
+      for (let i = 0; i < chunksteps; ++i) {
+        let ii = oo + oi * xstep;
+        outdata[oi] = gain * func(ii, indata, alim, fmax, inrate, width);
+        ++oi;
+      }
+    }
+    bar("decodeBar", oi/outframecount); // GUI: progress
+    if (oi < outframecount) {
+      setTimeout(loop, 0);
+    } else {
+      bar("decodeBar", 1); // GUI: 100% progress
+      setTimeout(done, 0);
+    }
+  };
+  loop();
 }
 
 function ascii2internal(c) {
@@ -598,6 +669,9 @@ function convertSegments(renderedBuffer, settings) {
       let mediaoffset = player0 ? buflen : 0;
       let mediaend = player0 ? size : size - buflen;
       let player_offset = player0 ? 0 : size - buflen;
+      if (settings.media == "sic") {
+        player_offset = 0x2000;
+      }
       let bin = new Uint8Array(size);
       for (let part of parts) {
         bin.set(part, mediaoffset);
@@ -607,7 +681,7 @@ function convertSegments(renderedBuffer, settings) {
         }
       }
       // patch end bank
-      let endbank = parts.length - (player0 ? 0 : 1);
+      let endbank = parts.length + (player0 ? 1 : 0);
       player_u8[labels.endlo+1 - labels.relocated_start] = endbank & 0xFF;
       player_u8[labels.endhi+1 - labels.relocated_start] = endbank >> 8;
       bin.set(player_u8, player_offset);
@@ -739,10 +813,10 @@ function offerDownload(name, blob) {
 
 function init() {
   readLocalStorage();
-  document.getElementById("reconvert").
+  document.getElementById("convert").
     addEventListener("click", readSingleFile, false);
-  document.getElementById("file-input").
-    addEventListener("change", readSingleFile, false);
+//  document.getElementById("file-input").
+//    addEventListener("change", readSingleFile, false);
   document.getElementById("settings").
     addEventListener("change", getSettings, false);
   document.getElementById("version").

@@ -10,12 +10,13 @@ NOP equ $FE00
 ; bank
     org *+2
 diff org *+2
+page org *+1
 
 >>> if ($cart) {
     opt f+h-
     org <<<$window>>>
 >>> if ($sic) {
-    org <<<$window+$2000>>>
+    org <<<$window>>>+$2000
 >>> }
 cart2ram_start
     org r:$2000
@@ -245,7 +246,31 @@ main
 >>>   $hpos = 1 if $covox and $period >= 35;
 >>>   # Always time if mono and period is >= 35
 >>>   $hpos = 1 if not $stereo and $period >= 35;
->>>   if ($pcm44) {
+>>>   # Except PCM4+4 stereo when period <= 52
+>>>   $hpos = 0 if $stereo and $pcm44 and $period <= 52;
+>>>   if ($pcm44t) {
+    ldy page ; 3 cycles
+    ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
+    lda hi,x ; 4 cycles
+    ldy lo,x ; 4 cycles
+    sty AUDC1 ; 4 cycles
+    sta AUDC3 ; 4 cycles
+>>>     if ($hpos) {
+    stx HPOSP0 ; 4 cycles
+>>>     }
+>>>     if ($stereo) {
+    ldy page ; 3 cycles
+    ldx <<<$window>>>+<<<$page+1>>>*$100,y ; 4 cycles
+    lda hi,x ; 4 cycles
+    ldy lo,x ; 4 cycles
+    sty AUDC1+$10 ; 4 cycles
+    sta AUDC3+$10 ; 4 cycles
+>>>       if ($hpos) {
+    stx HPOSP1 ; 4 cycles
+>>>       }
+>>>     }
+>>>     return (23 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
+>>>   } elsif ($pcm44) {
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva hi,x AUDC3 ; 8 cycles
     mva lo,x AUDC1 ; 8 cycles
@@ -318,7 +343,7 @@ main
     ; this HPOS is always allowed
     add #$6F-<<<$maxhalf>>> ; 4 cycles
     sta HPOSP0 ; 4 cycles
->>>     nop($period - 20);
+>>>     nop($period - 20 + ($period == 52));
     mva lo,x AUDC1 ; 8 cycles
 >>>     if ($hpos) {
     adc #$6F-<<<$maxhalf>>> ; 2 cycles
@@ -372,62 +397,73 @@ bank equ $80
 
 play0
     ldy #0 ; 2 cycles
-play
-    ;------------------
-    ; samples 0 .. N-5
->>> $pages_per_sample = ($stereo and ($pcm44 or $pwm or $covox)) ? 2 : 1;
->>> for ($page = 0, $i = 0; $page < $pages-5*$pages_per_sample; $page += $pages_per_sample, ++$i) {
->>>   $cycles = sample($page, 1);
->>>   nop($period - $cycles + ($pwm && $period == 52 && ($i&1)));
+>>> if ($pcm44t) {
+    sty page ; 3 cycles
 >>> }
-    ;------------------
-    ; sample N-5
->>> $cycles = sample($pages-5*$pages_per_sample, 0);
+play
+>>> $pages_per_frame = ($stereo and ($pcm44 or $pwm or $covox)) ? 2 : 1;
+>>> $frames = $pages / $pages_per_frame;
+>>> for ($page = $frame = 0; $page < $pages; $page += $pages_per_frame, ++$frame) {
+    ; frame <<<$frame>>> page <<<$page>>>
+>>>   $cycles = sample($page, $frame&1 == 0);
+>>>   if ($frame == $frames - 11) {
     lda bank ; 3 cycles +1 if thecart
 endlo
     eor #$FF ; 2 cycles
     sta diff ; 3 cycles
->>> nop($period - $cycles - 8 - ($thecart ? 1 : 0) + ($pwm && $period == 52));
-    ;------------------
-    ; sample N-4
->>> $cycles = sample($pages-4*$pages_per_sample, 0);
+>>>     $cycles += 8;
+>>>     $cycles += $thecart ? 1 : 0;
+>>>   } elsif ($frame == $frames - 9) {
     lda bank+1 ; 3 cycles +1 if thecart
 endhi
     eor #$FF ; 2 cycles
     sta diff+1 ; 3 cycles
->>> nop($period - $cycles - 8 - ($thecart ? 1 : 0));
-    ;------------------
-    ; sample N-3
->>> $cycles = sample($pages-3*$pages_per_sample, 0);
+>>>     $cycles += 8;
+>>>     $cycles += $thecart ? 1 : 0;
+>>>   } elsif ($frame == $frames - 7) {
     lda diff ; 3
     ora diff+1 ; 3
 loop_or_stop
     sne:jmp <<<$emulator ? "complete" : "initbank">>> ; 3 cycles
->>> nop($period - $cycles - 9 + ($pwm && $period == 52));
-    ;------------------
-    ; sample N-2
->>> $cycles = sample($pages-2*$pages_per_sample, 0);
+>>>     $cycles += 9;
+>>>   } elsif ($frame == $frames - 5) {
+>>>   } elsif ($frame == $frames - 3) {
     lda SKSTAT ; 4 cycles
     and #4 ; 2 cycles
 detectkeyevent
     bne keyevent ; 2 cycles
->>> nop($period - $cycles - 8);
-    ;------------------
-    ; sample N-1
-donekey
->>> $cycles = sample($pages-1*$pages_per_sample, 0);
+>>>     $cycles += 8;
+>>>   } elsif ($frame == $frames - 1) {
+>>>     if ($pcm44t) {
+    inc page ; 5 cycles
+>>>       $cycles += 5;
+>>>     } else {
     iny ; 2 cycles
+>>>       $cycles += 2;
+>>>     }
     beq next ; 2 cycles +1 if taken same page
 branch
->>> nop($period - $cycles - 7 + ($pwm && $period == 52));
+>>>     $cycles += 5; # beq next + jmp play
+>>>     nop($period - $cycles);
     jmp play ; 3 cycles
+>>>     next;
+>>>   }
+>>>   if ($period == 52 && $frame&1 == 0 && not ($mono and $pcm4)) {
+>>>     --$cycles;
+>>>   }
+>>>   nop($period - $cycles);
+>>>   if ($frame == $frames - 3) {
+donekey
+>>>   }
+>>> }
+
 next
     ; ert [>next]!=[>branch]
->>> if ($ram or $cart) {
+>>>     if ($ram or $cart) {
     jmp nextbank
->>> } elsif ($emulator) {
+>>>     } elsif ($emulator) {
     rts ; return to loader
->>> } else { die; }
+>>>     } else { die; }
 
 keyevent
 keyup
@@ -635,6 +671,8 @@ paudf3
     dta 13,5
 >>> }
 
+nop192
+    jsr nop96
 nop96
     jsr nop48
 nop48
@@ -645,8 +683,9 @@ nop12
     rts
 
 >>> sub nop {
->>>   ($cycles) = @_; # Don't use "my" here
+>>>   ($cycles, $force) = @_; # Don't use "my" here
 >>>   @nop = (
+>>>     192 => "jsr nop192 ; 192 cycles",
 >>>     96 => "jsr nop96 ; 96 cycles",
 >>>     48 => "jsr nop48 ; 48 cycles",
 >>>     24 => "jsr nop24 ; 24 cycles",
@@ -658,8 +697,16 @@ nop12
 >>>     3 => "lda NOP0 ; 3 cycles",
 >>>     2 => "nop ; 2 cycles",
 >>>   );
+>>>   for ($i = 0; $i < @nop; $i += 2) {
+>>>     $exists{$nop[$i]} = 1;
+>>>   }
 >>>   ++$nopcount;
 >>>   $nopsum += $cycles;
+>>>   if (!$force and $cycles > 14 and !$exists{$cycles}) {
+    jsr nop<<<$cycles>>> ; <<<$cycles>>> cycles
+>>>     $make_nop{$cycles} = 1;
+>>>     return;
+>>>   }
 >>>   if ($cycles < 0) {
 >>>     $slow_cycles += $cycles;
     ; slow by <<<-$cycles>>> cycles
@@ -667,14 +714,23 @@ nop12
 >>>   if ($cycles == 1) {
 >>>     $fast_cycles += 1;
     ; fast by 1 cycle
+>>>     return;
 >>>   }
+    ; ------------- NOP <<<$cycles>>>
 >>>   for ($i = 0; $i < @nop; $i += 2) {
->>>     return if $cycles <= 0;
+>>>     last if $cycles <= 0;
 >>>     while ($cycles >= $nop[$i]+2 || $cycles == $nop[$i]) {
 >>>       $cycles -= $nop[$i];
     <<<$nop[$i+1]>>>
 >>>     }
 >>>   }
+    ; -------------
+>>> }
+
+>>> for $cycles (sort {$a <=> $b} keys %make_nop) {
+nop<<<$cycles>>>
+>>> nop($cycles-12, 1);
+    rts
 >>> }
 
 >>> if ($nopsum / $nopcount < -2) {

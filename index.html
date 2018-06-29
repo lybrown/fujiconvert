@@ -123,6 +123,14 @@
     <input type="radio" name="frequency" value="15kHz"> 15kHz<br>
     <input type="radio" name="frequency" value="8kHz"> 8kHz<br>
 </div>
+    Resampling Effort:
+    <select name="resampling_effort">
+    <option value="ultra">Ultra</option>
+    <option value="high">High</option>
+    <option value="medium">Medium</option>
+    <option value="low">Low</option>
+    <option value="none">None</option>
+    </select><br>
     Dither: <input type="checkbox" name="dither"></br>
     Gain: <input type="text" name="gain" value="1.5"><br>
     Offset: <input type="text" name="offset" value="0"><br>
@@ -139,22 +147,22 @@
     <input type="radio" name="media" value="megamax"> MegaMax<br>
     <input type="radio" name="media" value="megacart"> MegaCart<br>
     <input type="radio" name="media" value="xegs"> XEGS<br>
-    <!-- <input type="radio" name="media" value="sic"> SIC!<br> -->
+    <input type="radio" name="media" value="sic"> SIC!<br>
 </div>
 <div>
     Max size:
     <select name="maxsize">
-    <option value="16K"> 16K<br>
-    <option value="80K"> 80K<br>
-    <option value="256K"> 256K<br>
-    <option value="512K"> 512K<br>
-    <option value="1M"> 1M<br>
-    <option value="2M"> 2M<br>
-    <option value="4M"> 4M<br>
-    <option value="32M"> 32M<br>
-    <option value="64M"> 64M<br>
-    <option value="128M" selected> 128M<br>
-    <option value="unlimited"> Unlimited<br>
+    <option value="16K"> 16K</option>
+    <option value="80K"> 80K</option>
+    <option value="256K"> 256K</option>
+    <option value="512K"> 512K</option>
+    <option value="1M"> 1M</option>
+    <option value="2M"> 2M</option>
+    <option value="4M"> 4M</option>
+    <option value="32M"> 32M</option>
+    <option value="64M"> 64M</option>
+    <option value="128M" selected> 128M</option>
+    <option value="unlimited"> Unlimited</option>
     </select>
 </div>
 </div>
@@ -164,7 +172,7 @@
 <td valign="top">
 <h3>Select Input Media</h3>
 
-<input type="file" id="file-input" /> <button id="reconvert">Reconvert</button>
+<input type="file" id="file-input" /> <button id="convert">Convert</button>
 
 <h3>Constrained Settings</h3>
 
@@ -178,10 +186,14 @@
 </div>
 <pre id="readMessage"></pre>
 
-<h3>Decode</h3>
+<h3>Decode and Resample</h3>
 
+<!--
 <div id="decodeBusyBack" class="progress">
 <div id="decodeBusy" class="busyBar">
+-->
+<div id="decodeProgress" class="progress">
+<div id="decodeBar" class="bar">
 </div>
 </div>
 <pre id="decodeMessage"></pre>

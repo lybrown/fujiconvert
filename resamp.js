@@ -1,18 +1,17 @@
-async function resample(inbuf, outbuf) {
-}
+// vim: ts=2:sts=2:sw=2:et
 
 function resamp(x, indat, alim, fmax, fsr, wnwdth) {
   let i,j, r_g,r_w,r_a,r_snc,r_y;	// some local variables
   r_g = 2 * fmax / fsr;           // Calc gain correction factor
   r_y = 0;
-  for (i = -wnwdth/2; i < (wnwdth/2); ++i) { // For 1 window width
-    j       = int(x + i);          // Calc input sample index
+  for (i = -(wnwdth/2); i < (wnwdth/2); ++i) { // For 1 window width
+    j       = x + i | 0;          // Calc input sample index
     // calculate von Hann Window. Scale and calculate Sinc
-    r_w     = 0.5 - 0.5 * Math.cos(2*pi*(0.5 + (j - x)/wnwdth));
-    r_a     = 2*pi*(j - x)*fmax/fsr;
-    r_snc = Math.abs(r_a) < 1e-10 ? 1 : Math.sin(r_a)/r_a;
+    r_w     = 0.5 - 0.5 * Math.cos(2*Math.PI*(0.5 + (j - x)/wnwdth));
+    r_a     = 2*Math.PI*(j - x)*fmax/fsr;
+    r_snc   = Math.abs(r_a) < 1e-10 ? 1 : Math.sin(r_a)/r_a;
     if (j >= 0 && j < alim) {
-      r_y   = r_y + r_g * r_w * r_snc * indat(j);
+      r_y   = r_y + r_g * r_w * r_snc * indat[j];
     }
   }
   return r_y;                  // Return new filtered sample

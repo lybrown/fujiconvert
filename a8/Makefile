@@ -24,7 +24,6 @@ atari = altirra
 	perl -pi -e 's/^n /  /' $*.lab
 
 %.asm.pl: %.asm.pp
-	#perl -pe 's/^\s*>>>// or do {s/<<<(.*?)>>>/\$${\(\\$1)}/g; $$_="print ' $< > $@
 	echo 'sub interp {($$_=$$_[0])=~s/<<<(.*?)>>>/eval $$1/ge;print}' > $@
 	perl -pe 's/^\s*>>>// or s/(.*)/interp <<'\''EOF'\'';\n$$1\nEOF/;' $< >> $@
 
