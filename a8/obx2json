@@ -24,7 +24,12 @@ sub parse_labels {
     #         D205 AUDC3
     while (<$fh>) {
         if (/^ +(\S+)\s+(\S+)/) {
-            $labels{lc $2} = hex($1);
+            my $value = hex($1);
+            my $name = $2;
+            # Exclude hardware labels
+            if (not ($value >= 0xD000 and $value <= 0xD7FF)) {
+                $labels{lc $2} = hex($1);
+            }
         }
     }
     return \%labels;
@@ -48,8 +53,10 @@ sub main {
         my $dir = $1;
         my $name = $2;
         my $lab = "$dir$name.lab";
-        $players{$name}{player} = parse_obx($obx);
-        $players{$name}{labels} = parse_labels($lab);
+        my $l = $players{$name}{labels} = parse_labels($lab);
+        if (($l->{slow_cycles}//0) <= 5 and ($l->{fast_cycles}//0) <= 5) {
+            $players{$name}{player} = parse_obx($obx);
+        }
     }
     print JSON->new->utf8->canonical(1)->pretty(1)->encode(\%players);
 }

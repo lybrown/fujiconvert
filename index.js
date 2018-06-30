@@ -551,11 +551,11 @@ function convertIDE(renderedBuffer, settings) {
     return clamp(samp, 0, max);
   };
   let maxbytes = settings.maxbytes;
-  let maxsamples = Math.min(
+  let maxframes = Math.min(
     (stereo ? maxbytes >> 1 : maxbytes) *
     (settings.method == "pcm4" ? 2 : 1),
     data.length);
-  console.log("maxbytes: " + maxbytes + " maxsamples: " + maxsamples);
+  console.log("maxbytes: " + maxbytes + " maxframes: " + maxframes);
   let i = 0; // source index
   let j = 0; // destination sector index
   let loop = function() {
@@ -575,8 +575,8 @@ function convertIDE(renderedBuffer, settings) {
       }
     }
     j += 0x200;
-    bar("convertBar", i/maxsamples); // GUI: progress
-    if (i < maxsamples) {
+    bar("convertBar", i/maxframes); // GUI: progress
+    if (i < maxframes) {
       setTimeout(loop, 0);
     } else {
       bar("convertBar", 1); // GUI: 100% progress
@@ -727,11 +727,11 @@ function convertSegments(renderedBuffer, settings) {
     cart ? carMax(settings.media) : 1e999,
     settings.media == "ram" ? 1 << 20 :
     settings.maxbytes);
-  let maxsamples = Math.min(
+  let maxframes = Math.min(
     (stereo ? maxbytes >> 1 : maxbytes) *
     (settings.method == "pcm4" ? 2 : 1),
     data.length);
-  console.log("maxbytes: " + maxbytes + " maxsamples: " + maxsamples);
+  console.log("maxbytes: " + maxbytes + " maxframes: " + maxframes);
   let i = 0; // source index
   let loop = function() {
     let k; // page offset
@@ -769,8 +769,8 @@ function convertSegments(renderedBuffer, settings) {
       }
     }
     parts.push(part); // part done
-    bar("convertBar", i/maxsamples); // GUI: progress
-    if (i < maxsamples) {
+    bar("convertBar", i/maxframes); // GUI: progress
+    if (i < maxframes) {
       setTimeout(loop, 0);
     } else {
       bar("convertBar", 1); // GUI: 100% progress
