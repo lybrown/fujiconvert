@@ -1,5 +1,7 @@
 // vim: ts=2:sts=2:sw=2:et
 let version = "0.2.2";
+let context = new AudioContext();
+let global = {};
 function setElement(element, value) {
   if (element instanceof RadioNodeList) {
     for (let i = 0; i < element.length; ++i) {
@@ -181,7 +183,7 @@ function getSettings() {
     }
   }
 
-  // Show cosntrained settings
+  // Show constrained settings
   settings.freq = cycles[settings.region] / settings.period;
   settingsText.innerText = Object.keys(settings).sort().map(function(key) {
     return key + ": " + settings[key] + "\n";
@@ -215,6 +217,7 @@ function readSingleFile(e) {
   let download = document.getElementById("download");
   download.innerText = "";
   download.href = "";
+  document.getElementById("controls").style.visibility = "hidden";
 
   binreader.onload = function(e) {
     bar("readBar", 1);
@@ -254,16 +257,15 @@ function concatenate(resultConstructor, ...arrays) {
 }
 
 function decode(contents, settings) {
-  let c = new AudioContext();
   bar("decodeBar", 0);
-  c.decodeAudioData(contents, function(buffer) {
-    resample(c, buffer, settings);
+  context.decodeAudioData(contents, function(buffer) {
+    resample(buffer, settings);
   }, function(e) {
     text("decodeMessage", "Decode Error: " + e);
   });
 }
 
-function resample(c, inbuffer, settings) {
+function resample(inbuffer, settings) {
   let induration = inbuffer.duration - settings.offset;
   if (induration < 0) {
     text("decodeMessage", "Offset (" + settings.offset +
@@ -277,7 +279,7 @@ function resample(c, inbuffer, settings) {
   let outchannels = settings.channels == "stereo" ? 2 : 1;
   let outframecount = settings.duration * outrate;
   let outlength = outframecount; // * outchannels?
-  let outbuffer = c.createBuffer(outchannels, outlength, inrate); // outrate!
+  let outbuffer = context.createBuffer(outchannels, outlength, outrate); // outrate!
   let xstep = inrate / outrate;
   let fmax = Math.min(inrate, outrate) * 0.45; // Max frequency allowed
   let inchannels = inbuffer.numberOfChannels;
@@ -310,6 +312,8 @@ function resample(c, inbuffer, settings) {
   });
   let done = function() {
     console.log("Resampling completed successfully");
+    global.outbuffer = outbuffer;
+    document.getElementById("controls").style.visibility = "visible";
     convert(outbuffer, settings);
   };
   let func = width == 1 ? (i, data) => data[i|0] : resamp;
@@ -368,7 +372,8 @@ function timefmt(secs) {
   let minutes = s % 360000 / 60000 | 0;
   let seconds = s % 60000 / 1000 | 0;
   let msecs = s % 1000;
-  return [hours, minutes, seconds].map(x => x.toString().padStart(2, "0")).join(":") +
+  return [hours, minutes, seconds].
+    map(x => x.toString().padStart(2, "0")).join(":") +
       "." + msecs.toString().padStart(3, "0")
 }
 
@@ -414,7 +419,6 @@ function splash(settings, labels) {
 
   console.log("text: " + text + " scrlen: " + labels.scrlen);
 
-  //return Uint8Array.from(text, c => c.charCodeAt(0));
   return Uint8Array.from(text, ascii2internal);
 }
 
@@ -811,14 +815,28 @@ function offerDownload(name, blob) {
   // Lifetime is tied to browser window object
 }
 
+function play(e) {
+  global.testSource = context.createBufferSource();
+  global.testSource.buffer = global.outbuffer;
+  global.testSource.connect(context.destination);
+  global.testSource.start(0);
+}
+function stop(e) {
+  global.testSource.stop(0);
+}
+
 function init() {
   readLocalStorage();
-  document.getElementById("convert").
-    addEventListener("click", readSingleFile, false);
-//  document.getElementById("file-input").
-//    addEventListener("change", readSingleFile, false);
+  document.getElementById("reconvert").
+    addEventListener("click", readSingleFile);
+  document.getElementById("play").
+    addEventListener("click", play);
+  document.getElementById("stop").
+    addEventListener("click", stop);
+  document.getElementById("file-input").
+    addEventListener("change", readSingleFile);
   document.getElementById("settings").
-    addEventListener("change", getSettings, false);
+    addEventListener("change", getSettings);
   document.getElementById("version").
     innerText = version;
   getSettings();
