@@ -20,3 +20,8 @@ First release
 * Support for XEGS cartridges
 * Simple dither
 
+0.2.2
+-----
+
+* Sinc resampling (unoptimized --> SLOW)
+* SIC! Cart support

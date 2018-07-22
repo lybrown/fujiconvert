@@ -200,11 +200,9 @@ function readSingleFile(e) {
   if (!file) {
     return;
   }
+  stop(0);
   let settings = getSettings();
   settings.filename = file.name;
-
-  // Read as binary and offer download
-  let binreader = new FileReader();
 
   // Reset indicators
   bar("readBar", 0);
@@ -219,6 +217,8 @@ function readSingleFile(e) {
   download.href = "";
   document.getElementById("controls").style.visibility = "hidden";
 
+  // Read as binary
+  let binreader = new FileReader();
   binreader.onload = function(e) {
     bar("readBar", 1);
     let contents = e.target.result;
@@ -281,7 +281,7 @@ function resample(inbuffer, settings) {
   let outlength = outframecount; // * outchannels?
   let outbuffer = context.createBuffer(outchannels, outlength, outrate); // outrate!
   let xstep = inrate / outrate;
-  let fmax = Math.min(inrate, outrate) * 0.45; // Max frequency allowed
+  let fmax = Math.min(inrate, outrate) * 0.49; // Max frequency allowed
   let inchannels = inbuffer.numberOfChannels;
   let alim = inbuffer.length;
   let indata = inbuffer.getChannelData(0);
@@ -789,6 +789,7 @@ function zip_and_offer(file, settings) {
   let method = settings.methodStr;
   let filename = base + " " + method + settings.extension;
   let zipname = base + " " + method + ".zip";
+  global.wavename = base + " " + method + ".wav";
   let zip = new JSZip();
   zip.file(filename, file);
   busy("zipBusy", 1);
@@ -813,18 +814,47 @@ function offerDownload(name, blob) {
   // createObjectURL works on Blobs and Files
   element.href = window.URL.createObjectURL(blob);
   // Lifetime is tied to browser window object
+  setTimeout(offerWave, 0);
+}
+
+async function audioBufferToWaveBlob(audioBuffer) {
+  return new Promise(function(resolve, reject) {
+    let worker = new Worker('./waveWorker.js');
+    worker.onmessage = function( e ) {
+      let blob = new Blob([e.data.buffer], {type:"audio/wav"});
+      resolve(blob);
+    };
+    let pcmArrays = [];
+    for(let i = 0; i < audioBuffer.numberOfChannels; i++) {
+      pcmArrays.push(audioBuffer.getChannelData(i));
+    }
+    worker.postMessage({
+      pcmArrays,
+      config: {sampleRate: audioBuffer.sampleRate, bitDepth: 8}
+    });
+  });
+}
+async function offerWave() {
+  let wave = await audioBufferToWaveBlob(global.outbuffer);
+  let element = document.getElementById("preview");
+  let name = global.wavename;
+  element.innerText = name;
+  element.download = name;
+  element.href = window.URL.createObjectURL(wave);
 }
 
 function play(e) {
+  stop(e);
   global.testSource = context.createBufferSource();
   global.testSource.buffer = global.outbuffer;
   global.testSource.connect(context.destination);
   global.testSource.start(0);
 }
 function stop(e) {
-  global.testSource.stop(0);
+  if (global.testSource) {
+    global.testSource.stop(0);
+  }
 }
-
 function init() {
   readLocalStorage();
   document.getElementById("reconvert").
