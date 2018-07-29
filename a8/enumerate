@@ -37,12 +37,14 @@ sub main {
         method => [@methods],
         channels => [qw(mono stereo)],
         period => [qw(35 37 50 52 74 105 210)],
+        threads => 12,
     );
     GetOptions(
         "media=s@" => \&set,
         "method=s@" => \&set,
         "channels=s@" => \&set,
         "period=s@" => \&set,
+        "threads=i" => \$args{threads},
     ) or usage();
     my @targets;
     my $player = `cat player.asm.pl`;
@@ -87,7 +89,7 @@ sub main {
 	}
     }
     warn "INFO: Assembling...\n";
-    system("make -f ../Makefile -j12 @targets");
+    system("make -f ../Makefile -j$args{threads} @targets");
     warn "INFO: Done\n";
 }
 

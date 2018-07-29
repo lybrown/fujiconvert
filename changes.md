@@ -23,5 +23,6 @@ First release
 0.2.2
 -----
 
-* Sinc resampling (unoptimized --> SLOW)
-* SIC! Cart support
+* Added sinc resampling (super slow)
+* Added SIC! cart support
+* Added Preview wave file (always 8-bit regardless of method)

@@ -83,7 +83,7 @@ function readLocalStorage() {
     setElement(form[elements[i]], localStorage.getItem(elements[i]));
   }
   if (!form.gain.value) {
-    form.gain.value = 1.5;
+    form.gain.value = 1;
   }
   if (!form.offset.value) {
     form.offset.value = 0;
@@ -185,6 +185,10 @@ function getSettings() {
 
   // Show constrained settings
   settings.freq = cycles[settings.region] / settings.period;
+  if (settings.period == 52) {
+    // Adjust frequency since player actually plays exactly 2 frames per scan line
+    settings.freq = cycles[settings.region] / 52.5;
+  }
   settingsText.innerText = Object.keys(settings).sort().map(function(key) {
     return key + ": " + settings[key] + "\n";
   }).join("");
@@ -290,7 +294,7 @@ function resample(inbuffer, settings) {
   let outdata2 = outchannels > 1 ? outbuffer.getChannelData(1) : undefined;
   let gain = settings.gain;
   let width =
-    settings.resampling_effort == "ultra" ? 1028 :
+    settings.resampling_effort == "ultra" ? 1024 :
     settings.resampling_effort == "high" ? 256 :
     settings.resampling_effort == "medium" ? 128 :
     settings.resampling_effort == "low" ? 16 :

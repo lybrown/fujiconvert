@@ -405,7 +405,7 @@ play
 >>> $frames = $pages / $pages_per_frame;
 >>> for ($page = $frame = 0; $page < $pages; $page += $pages_per_frame, ++$frame) {
     ; frame <<<$frame>>> page <<<$page>>>
->>>   $cycles = sample($page, $frame&1 == 0);
+>>>   $cycles = sample($page, ($frame&1) == 0 && $frame != $frames - 2);
 >>>   if ($frame == $frames - 11) {
     lda bank ; 3 cycles +1 if thecart
 endlo
@@ -427,7 +427,7 @@ loop_or_stop
     sne:jmp <<<$emulator ? "complete" : "initbank">>> ; 3 cycles
 >>>     $cycles += 9;
 >>>   } elsif ($frame == $frames - 5) {
->>>   } elsif ($frame == $frames - 3) {
+>>>   } elsif ($frame == $frames - 2) {
     lda SKSTAT ; 4 cycles
     and #4 ; 2 cycles
 detectkeyevent
@@ -448,7 +448,7 @@ branch
     jmp play ; 3 cycles
 >>>     next;
 >>>   }
->>>   if ($period == 52 && $frame&1 == 0 && not ($mono and $pcm4)) {
+>>>   if ($period == 52 && ($frame&1) == 0 && not ($mono and $pcm4)) {
 >>>     --$cycles;
 >>>   }
 >>>   nop($period - $cycles);

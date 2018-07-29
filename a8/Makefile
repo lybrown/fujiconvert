@@ -2,8 +2,10 @@ build/players.json: player.asm.pl enumerate obx2json ramdetect.asm hardware.asm
 	mkdir -p build
 	cp -f hardware.asm build
 	cp -f ramdetect.asm build
-	./enumerate $(params)
+	./enumerate -threads $(threads) $(params)
 	./obx2json build/player-*.obx $(out)
+
+threads := 12
 
 det.run:
 det.obx: ramdetect.asm
