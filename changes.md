@@ -26,3 +26,10 @@ First release
 * Added sinc resampling (super slow)
 * Added SIC! cart support
 * Added Preview wave file (always 8-bit regardless of method)
+
+0.2.3
+-----
+
+* Fixed PCM4+4 initialization after pause/resume
+* Removed CSS-animated progress bars that slowed down the browser
+* Fixed 7800Hz on Firefox

@@ -1,5 +1,5 @@
 // vim: ts=2:sts=2:sw=2:et
-let version = "0.2.2";
+let version = "0.2.3";
 let context = new AudioContext();
 let global = {};
 function setElement(element, value) {
@@ -44,21 +44,28 @@ function getElement(element) {
   }
 }
 function bar(name, fraction) {
-  let bar = document.getElementById(name);
-  bar.style.width = (fraction * 100) + "%";
+  //let bar = document.getElementById(name);
+  //bar.style.width = (fraction * 100) + "%";
+  //let msg = document.getElementById(name.replace("Bar", "Message"));
+  let msg = document.getElementById(name);
+  let width = 80;
+  let percent = clamp(fraction * width | 0, 0, width);
+  msg.innerHTML = "#".repeat(percent) + "-".repeat(width-percent);
 }
 function busy(name, state) {
-  let busy = document.getElementById(name);
-  if (state == 0) {
-    busy.style.visibility = "hidden";
-    busy.parentNode.style["background-color"] = "#ddd";
-  } else if (state == 1) {
-    busy.style.visibility = "visible";
-    busy.style["background-color"] = "#0000";
-  } else if (state == 2) {
-    busy.style.visibility = "hidden";
-    busy.parentNode.style["background-color"] = "#4CAF50";
-  }
+//  let busy = document.getElementById(name);
+//  if (state == 0) {
+//    busy.style.visibility = "hidden";
+//    busy.parentNode.style["background-color"] = "#ddd";
+//  } else if (state == 1) {
+//    busy.style.visibility = "visible";
+//    busy.style["background-color"] = "#0000";
+//  } else if (state == 2) {
+//    busy.style.visibility = "hidden";
+//    busy.parentNode.style["background-color"] = "#4CAF50";
+//  }
+  let msg = document.getElementById(name);
+  msg.innerHTML = state == 1 ? "Busy" : state == 2 ? "Done" : "----";
 }
 function text(name, msg) {
   let message = document.getElementById(name);
@@ -198,17 +205,7 @@ function getSettings() {
 
   return settings;
 }
-function readSingleFile(e) {
-  let fileinput = document.getElementById("file-input");
-  let file = fileinput.files[0];
-  if (!file) {
-    return;
-  }
-  stop(0);
-  let settings = getSettings();
-  settings.filename = file.name;
-
-  // Reset indicators
+function resetIndicators() {
   bar("readBar", 0);
   bar("decodeBar", 0);
   bar("convertBar", 0);
@@ -220,6 +217,18 @@ function readSingleFile(e) {
   download.innerText = "";
   download.href = "";
   document.getElementById("controls").style.visibility = "hidden";
+}
+function readSingleFile(e) {
+  let fileinput = document.getElementById("file-input");
+  let file = fileinput.files[0];
+  if (!file) {
+    return;
+  }
+  stop(0);
+  let settings = getSettings();
+  settings.filename = file.name;
+
+  resetIndicators();
 
   // Read as binary
   let binreader = new FileReader();
@@ -280,10 +289,11 @@ function resample(inbuffer, settings) {
       Math.min(settings.duration, induration) : induration;
   let inrate = inbuffer.sampleRate;
   let outrate = settings.freq;
+  global.outrate = outrate;
   let outchannels = settings.channels == "stereo" ? 2 : 1;
   let outframecount = settings.duration * outrate;
   let outlength = outframecount; // * outchannels?
-  let outbuffer = context.createBuffer(outchannels, outlength, outrate); // outrate!
+  let outbuffer = context.createBuffer(outchannels, outlength, inrate); // outrate!
   let xstep = inrate / outrate;
   let fmax = Math.min(inrate, outrate) * 0.49; // Max frequency allowed
   let inchannels = inbuffer.numberOfChannels;
@@ -834,7 +844,7 @@ async function audioBufferToWaveBlob(audioBuffer) {
     }
     worker.postMessage({
       pcmArrays,
-      config: {sampleRate: audioBuffer.sampleRate, bitDepth: 8}
+      config: {sampleRate: global.outrate, bitDepth: 8}
     });
   });
 }
@@ -851,6 +861,7 @@ function play(e) {
   stop(e);
   global.testSource = context.createBufferSource();
   global.testSource.buffer = global.outbuffer;
+  global.testSource.playbackRate.value = global.outrate / context.sampleRate;
   global.testSource.connect(context.destination);
   global.testSource.start(0);
 }
@@ -874,4 +885,5 @@ function init() {
   document.getElementById("version").
     innerText = version;
   getSettings();
+  resetIndicators();
 }

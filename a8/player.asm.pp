@@ -184,6 +184,7 @@ KHZ15 equ 1<<0
 >>>   if ($stereo) {
     mva #[FAST1|FAST3|HI13] AUDCTL+$10
 >>>   }
+    jsr setpulse
 >>> } elsif ($pwm) {
     mva #$AF AUDC1
     mva #$FF AUDF2
@@ -227,10 +228,6 @@ main
 
     mva #{bne} detectkeyevent
     mva #[keyup-[detectkeyevent+2]] detectkeyevent+1
-
->>> if ($pcm44) {
-    jsr setpulse
->>> }
 
 >>> if ($pwm and $period > 105) {
 >>>   $dups = int(($period - 1) / 105);
