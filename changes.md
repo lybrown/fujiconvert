@@ -33,3 +33,8 @@ First release
 * Fixed PCM4+4 initialization after pause/resume
 * Removed CSS-animated progress bars that slowed down the browser
 * Fixed 7800Hz on Firefox
+
+0.2.4
+-----
+
+* Fix issues found by Microsoft Edge
