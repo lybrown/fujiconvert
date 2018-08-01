@@ -1,15 +1,15 @@
 // vim: ts=2:sts=2:sw=2:et
-let version = "0.2.3";
+let version = "0.2.4";
 let context = new AudioContext();
 let global = {};
 function setElement(element, value) {
-  if (element instanceof RadioNodeList) {
+  if (element[0] && element[0].type == "radio") {
     for (let i = 0; i < element.length; ++i) {
       if (element[i].value == value) {
         element[i].checked = true;
       }
     }
-  } else if (element instanceof HTMLSelectElement) {
+  } else if (element.type == "select-one") {
     for (let i = 0; i < element.length; ++i) {
       if (element[i].value == value) {
         element[i].selected = true;
@@ -23,14 +23,14 @@ function setElement(element, value) {
   }
 }
 function getElement(element) {
-  if (element instanceof RadioNodeList) {
+  if (element[0] && element[0].type == "radio") {
     for (let i = 0; i < element.length; ++i) {
       if (element[i].checked) {
         return element[i].value;
       }
     }
     return "NONE";
-  } else if (element instanceof HTMLSelectElement) {
+  } else if (element.type == "select-one") {
     for (let i = 0; i < element.length; ++i) {
       if (element[i].selected) {
         return element[i].value;
