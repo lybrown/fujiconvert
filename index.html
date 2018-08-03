@@ -2,56 +2,25 @@
 <html>
 <head>
 <style>
-.progress {
-  /*
-  width: 100%;
-  background-color: #ddd;
-  border-radius: 3px;
-  */
+.page {
+    display: grid;
+    grid-template-columns: 2fr 7fr;
+    grid-template-rows: auto auto 10px auto;
 }
-
-.bar {
-  font-family: monospace;
-  white-space: pre;
-  /*
-  width: 0%;
-  height: 30px;
-  background-color: #4CAF50;
-  border-radius: 3px;
-  */
+.header {
+    grid-row: 1;
 }
-
-/* https://www.pexels.com/blog/css-only-loaders/ */
-.busyBar {
-  font-family: monospace;
-  white-space: pre;
-  /*
-  width: 100%;
-  height: 30px;
-  border-radius: 3px;
-  background-image: 
-    repeating-linear-gradient(
-      -45deg,
-      #4CAF50,
-      #4CAF50 22px,
-      #ddd 20px,
-      #ddd 40px
-    );
-  background-size: 56px 56px;
-  animation: move 5s linear infinite;
-  visibility: hidden;
-  */
+.left {
+    grid-column: 1;
+    grid-row: 2;
 }
-
-@keyframes move {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 56px 0;
-  }
+.right {
+    grid-column: 2;
+    grid-row: 2;
 }
-
+.footer {
+    grid-row: 4;
+}
 .divparent div {
     float: left; 
 }
@@ -64,13 +33,14 @@
 </head>
 <body onload="init()">
 
-<h1>FujiConvert</h1>
+<div class="page">
 
-<table width="100%">
-<tr>
-<td width="30%" valign="top">
+<div class="header">
+<h2>FujiConvert</h2>
+</div> <!-- header -->
+
+<div class="left">
 <h3>Settings</h3>
-
 <form action="" id="settings">
 <div>
 <div>
@@ -155,8 +125,9 @@
 </div>
 </form>
 
-</td>
-<td valign="top">
+</div> <!-- left -->
+
+<div class="right">
 <h3>Select Input Media</h3>
 
 <input type="file" id="file-input" />
@@ -168,38 +139,22 @@
 
 <h3>Read</h3>
 
-<div id="readProgress" class="progress">
-<div id="readBar" class="bar">
-</div>
-</div>
+<pre id="readBar"></pre>
 <pre id="readMessage"></pre>
 
 <h3>Decode and Resample</h3>
 
-<!--
-<div id="decodeBusyBack" class="progress">
-<div id="decodeBusy" class="busyBar">
--->
-<div id="decodeProgress" class="progress">
-<div id="decodeBar" class="bar">
-</div>
-</div>
+<pre id="decodeBar"></pre>
 <pre id="decodeMessage"></pre>
 
 <h3>Convert</h3>
 
-<div id="convertProgress" class="progress">
-<div id="convertBar" class="bar">
-</div>
-</div>
+<pre id="convertBar"></pre>
 <pre id="convertMessage"></pre>
 
 <h3>Zip</h3>
 
-<div id="zipBusyBack" class="progress">
-<div id="zipBusy" class="busyBar">
-</div>
-</div>
+<pre id="zipBusy"></pre>
 <pre id="zipMessage"></pre>
 
 <h3>Download</h3>
@@ -210,12 +165,13 @@ Preview: <a id="preview"></a>
 <button id="play">Play</button>
 <button id="stop">Stop</button>
 </div>
-</td>
-</tr>
-</table>
+</div> <!-- right -->
 
+<div class="footer">
 By Xuel. 2018. MIT License.<br>
-<a href="https://github.com/lybrown/fujiconvert">Github</a> Version <b id="version">X.X</b>
+<a href="https://github.com/lybrown/fujiconvert">Github</a> Version <b id="version">X.X.X</b>
+</div> <!-- footer -->
 
+</div> <!-- page -->
 </body>
 </html>
