@@ -1,6 +1,5 @@
 // vim: ts=2:sts=2:sw=2:et
 let version = "0.2.4";
-let context = new AudioContext();
 let global = {};
 function setElement(element, value) {
   if (element[0] && element[0].type == "radio") {
@@ -44,26 +43,12 @@ function getElement(element) {
   }
 }
 function bar(name, fraction) {
-  //let bar = document.getElementById(name);
-  //bar.style.width = (fraction * 100) + "%";
-  //let msg = document.getElementById(name.replace("Bar", "Message"));
   let msg = document.getElementById(name);
   let width = 80;
   let percent = clamp(fraction * width | 0, 0, width);
   msg.innerHTML = "#".repeat(percent) + "-".repeat(width-percent);
 }
 function busy(name, state) {
-//  let busy = document.getElementById(name);
-//  if (state == 0) {
-//    busy.style.visibility = "hidden";
-//    busy.parentNode.style["background-color"] = "#ddd";
-//  } else if (state == 1) {
-//    busy.style.visibility = "visible";
-//    busy.style["background-color"] = "#0000";
-//  } else if (state == 2) {
-//    busy.style.visibility = "hidden";
-//    busy.parentNode.style["background-color"] = "#4CAF50";
-//  }
   let msg = document.getElementById(name);
   msg.innerHTML = state == 1 ? "Busy" : state == 2 ? "Done" : "----";
 }
@@ -143,7 +128,7 @@ function getSettings() {
     "32M": 32 << 20,
     "64M": 64 << 20,
     "128M": 128 << 20,
-    "unlimited": 1 << 30,
+    "unlimited": 1 << 32,
   };
   let settings = {};
   let elements = formElements();
@@ -167,16 +152,11 @@ function getSettings() {
 
   if (settings.media != "ide") {
     // Don't use players with missed cycles
-    let player_name = "player-" +
-      settings.media + "-" +
-      settings.method + "-" +
-      settings.channels + "-" +
-      settings.period;
     let valid_periods = Object.values(period).sort();
     for (;;) {
-      let player_name = get_player_name(settings);
-      console.log(`player_name: ${player_name}`);
-      let labels = players[player_name].labels;
+      settings.player_name = get_player_name(settings);
+      console.log(`player_name: ${settings.player_name}`);
+      let labels = players[settings.player_name].labels;
       if ((!labels.slow_cycles || labels.slow_cycles <= 5) &&
           (!labels.fast_cycles || labels.fast_cycles <= 5)) {
         break;
@@ -269,31 +249,152 @@ function concatenate(resultConstructor, ...arrays) {
   return result;
 }
 
+function getRamCapacity(settings) {
+  let labels = players[settings.player_name].labels;
+  let buflen = 0x100 * labels.pages;
+  let bytes = (1 << 20) - buflen;
+  return bytes;
+}
+function getCartCapacity(settings) {
+  let labels = players[settings.player_name].labels;
+  let buflen = 0x100 * labels.pages;
+  let bytes = carMax(settings.media) - buflen;
+  return bytes;
+}
+function getMediaCapacity(settings) {
+  switch (settings.media) {
+    case "ram": return getRamCapacity(settings);
+    case "emulator": return 1<<32;
+    case "ide": return 1<<32;
+    default: return getCartCapacity(settings);
+  }
+}
+function getBytesPerFrame(settings) {
+  let stereo = settings.channels == "stereo";
+  let fourbit = settings.method == "pcm4";
+  return fourbit ?
+    stereo ? 1 : 0.5 :
+    stereo ? 2 : 1;
+}
+function bytesToFrames(settings, bytecount) {
+  let bytesperframe = getBytesPerFrame(settings);
+  let framecount = bytecount / bytesperframe;
+  return framecount;
+}
+function framesToBytes(settings, framecount) {
+  let bytesperframe = getBytesPerFrame(settings);
+  let bytecount = framecount * bytesperframe;
+  return bytecount;
+}
+function framesToDuration(settings, framecount) {
+  return framecount / settings.freq;
+}
+function durationToFrames(settings, duration) {
+  return duration * settings.freq;
+}
+function getUserLimit(settings) {
+  let maxbytes = settings.maxbytes;
+  let labels = players[settings.player_name].labels;
+  if (labels.pages) {
+    return maxbytes - 0x100 * labels.pages;
+  }
+  return maxbytes;
+}
+function getFrameCount(settings, buffer) {
+  // Frame count is limited by:
+  //   Media capacity
+  //   Song duration
+  //   User byte limit
+  //   User duration limit
+
+  let mediacapacity = getMediaCapacity(settings);
+  let mediaframecount = bytesToFrames(settings, mediacapacity);
+
+  let usercapacity = getUserLimit(settings);
+  let userframecount = bytesToFrames(settings, usercapacity);
+
+  let songframecount = buffer ? buffer.length : 1 << 32;
+
+  let remainingduration = Math.max(buffer.duration - settings.offset, 0);
+  let userduration = settings.duration > 0 ?
+    Math.min(settings.duration, remainingduration) : 1000 * 60;
+  let userdurationframecount = durationToFrames(settings, userduration);
+
+  return Math.min(
+    mediaframecount,
+    userframecount,
+    songframecount,
+    userdurationframecount);
+}
+function extractBuffer(context, inbuf, offset, framecount, width) {
+  let chancount = inbuf.numberOfChannels;
+  let samplerate = inbuf.sampleRate;
+  let outbuf = context.createBuffer(chancount, framecount + width, samplerate);
+  for (let i = 0; i < chancount; ++i) {
+    let inchan = inbuf.getChannelData(i);
+    let outchan = outbuf.getChannelData(i);
+    outchan.set(inchan.subarray(offset, framecount), width/2);
+  }
+  return outbuf;
+}
+function get_window_width(settings) {
+  let width =
+    settings.resampling_effort == "ultra" ? 1024 :
+    settings.resampling_effort == "high" ? 256 :
+    settings.resampling_effort == "medium" ? 128 :
+    settings.resampling_effort == "low" ? 16 :
+    1;
+  return width;
+}
 function decode(contents, settings) {
-  bar("decodeBar", 0);
+  bar("decodeBar", 0.02);
+
+  // Create OfflineAudioContext
+  let channelcount = settings.channels == "stereo" ? 2 : 1;
+  let length = 1000;
+  let samplerate = 48000;
+  let wavefile = new wav(contents);
+  if (wavefile.sampleRate !== undefined) {
+    console.log("Found RIFF WAVE with sample rate: " + wavefile.sampleRate);
+    samplerate = wavefile.sampleRate;
+  }
+  console.log(`Creating OfflineAudioContext(${channelcount}, ${length}, ${samplerate})`);
+  let context = new OfflineAudioContext(channelcount, length, samplerate);
+  settings.context = context;
+
   context.decodeAudioData(contents, function(buffer) {
-    resample(buffer, settings);
+    bar("decodeBar", 1); // GUI: 100% progress
+
+    global.outrate = settings.freq;
+    global.outbuffer = buffer;
+    if (0) {
+      convert(buffer, settings);
+    } else {
+      let duration = buffer.duration - settings.offset;
+      if (duration < 0) {
+        text("decodeMessage", "Offset (" + settings.offset +
+          ") is larger than sound duration (" + buffer.duration + ")");
+        return;
+      }
+
+      let framecount = getFrameCount(settings, buffer);
+      let width = get_window_width(settings);
+
+      let newbuf = extractBuffer(context, buffer, settings.offset, framecount, width);
+      resample(newbuf, settings);
+    }
   }, function(e) {
     text("decodeMessage", "Decode Error: " + e);
   });
 }
-
 function resample(inbuffer, settings) {
-  let induration = inbuffer.duration - settings.offset;
-  if (induration < 0) {
-    text("decodeMessage", "Offset (" + settings.offset +
-      ") is larger than sound duration (" + inbuffer.duration + ")");
-    return;
-  }
-  settings.duration = settings.duration > 0 ?
-      Math.min(settings.duration, induration) : induration;
   let inrate = inbuffer.sampleRate;
   let outrate = settings.freq;
   global.outrate = outrate;
   let outchannels = settings.channels == "stereo" ? 2 : 1;
-  let outframecount = settings.duration * outrate;
+  let outframecount = inbuffer.duration * outrate;
   let outlength = outframecount; // * outchannels?
-  let outbuffer = context.createBuffer(outchannels, outlength, inrate); // outrate!
+  let outbuffer = settings.context.createBuffer(outchannels, outlength, outrate); // outrate!
   let xstep = inrate / outrate;
   let fmax = Math.min(inrate, outrate) * 0.49; // Max frequency allowed
   let inchannels = inbuffer.numberOfChannels;
@@ -303,12 +404,7 @@ function resample(inbuffer, settings) {
   let outdata = outbuffer.getChannelData(0);
   let outdata2 = outchannels > 1 ? outbuffer.getChannelData(1) : undefined;
   let gain = settings.gain;
-  let width =
-    settings.resampling_effort == "ultra" ? 1024 :
-    settings.resampling_effort == "high" ? 256 :
-    settings.resampling_effort == "medium" ? 128 :
-    settings.resampling_effort == "low" ? 16 :
-    1;
+  let width = get_window_width(settings);
   let oi = 0;
   let oo = settings.offset * inrate;
   console.log({
@@ -327,7 +423,6 @@ function resample(inbuffer, settings) {
   let done = function() {
     console.log("Resampling completed successfully");
     global.outbuffer = outbuffer;
-    document.getElementById("controls").style.visibility = "visible";
     convert(outbuffer, settings);
   };
   let func = width == 1 ? (i, data) => data[i|0] : resamp;
@@ -828,6 +923,9 @@ function offerDownload(name, blob) {
   // createObjectURL works on Blobs and Files
   element.href = window.URL.createObjectURL(blob);
   // Lifetime is tied to browser window object
+
+  document.getElementById("controls").style.visibility = "visible";
+
   setTimeout(offerWave, 0);
 }
 
@@ -859,10 +957,10 @@ async function offerWave() {
 
 function play(e) {
   stop(e);
-  global.testSource = context.createBufferSource();
+  global.context = global.context || new AudioContext();
+  global.testSource = global.context.createBufferSource();
   global.testSource.buffer = global.outbuffer;
-  global.testSource.playbackRate.value = global.outrate / context.sampleRate;
-  global.testSource.connect(context.destination);
+  global.testSource.connect(global.context.destination);
   global.testSource.start(0);
 }
 function stop(e) {
