@@ -338,13 +338,13 @@ function extractBuffer(context, inbuf, offset, framecount, width) {
   return outbuf;
 }
 function get_window_width(settings) {
-  let width =
-    settings.resampling_effort == "ultra" ? 1024 :
-    settings.resampling_effort == "high" ? 256 :
-    settings.resampling_effort == "medium" ? 128 :
-    settings.resampling_effort == "low" ? 16 :
-    1;
-  return width;
+  switch (settings.resampling_effort) {
+    case "ultra": return 1024;
+    case "high": return 256;
+    case "medium": return 128;
+    case "low": return 16;
+    default: return 1;
+  }
 }
 function decode(contents, settings) {
   bar("decodeBar", 0.02);
@@ -915,10 +915,6 @@ function offerDownload(name, blob) {
   let element = document.getElementById("download");
   element.innerText = name;
   element.download = name;
-
-  // data: fails for files over 2MB
-  // https://stackoverflow.com/questions/16761927/aw-snap-when-data-uri-is-too-large
-  //element.href = "data:;base64," + btoa(contents);
 
   // createObjectURL works on Blobs and Files
   element.href = window.URL.createObjectURL(blob);

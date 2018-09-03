@@ -27,7 +27,7 @@ WavePCM.prototype.record = function( buffers ){
 
       // Check for clipping
       if ( sample > 1 ) {
-        sample = 0.9999999;
+        sample = 0.999999999;
       }
 
       else if ( sample < -1 ) {
