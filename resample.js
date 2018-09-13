@@ -4,21 +4,22 @@
 
 "use strict";
 
-function resample_buf(inbuf, instart, inframecount, inwidth, outrate) {
+function resample_buf(inbuf, inwidth, outrate) {
   let inbufs = []
   for (let i = 0; i < inbuf.numberOfChannels; ++i) {
     inbufs[i] = inbuf.getChannelData(i);
   }
-  return resample_raw(inbufs, instart, inframecount, inwidth, inbuf.sampleRate, outrate);
+  return resample_raw(inbufs, inwidth, inbuf.sampleRate, outrate);
 }
 
-function resample_raw(inbufs, instart, inframecount, inwidth, inrate, outrate) {
-  let worker = new Worker("resample.js");
+function resample_raw(inbufs, inwidth, inrate, outrate) {
+  //let worker = new Worker("resample.js");
   let outbufs = [];
+  let inframecount = inbufs[0].length;
   let outframecount = inframecount * outrate / inrate | 0;
   for (let i = 0; i < inbufs.length; ++i) {
     outbufs[i] = new Float32Array(outframecount + 1);
-    resample_mono(inbuf[i], inrate, inwidth, outbuf, outrate);
+    resample_mono(inbufs[i], inrate, inwidth, outbufs[i], outrate);
   }
   return outbufs;
 }
@@ -26,15 +27,8 @@ function resample_raw(inbufs, instart, inframecount, inwidth, inrate, outrate) {
 this.onmessage = function (m, t) {
   let d = m.data;
   let [inbuf, outbuf] = t;
-  let inbuf2 = extract_buffer(inbuf, d.instart, d.inframecount, d.inwidth);
-  resample(inbuf2, d.inrate, d.inwidth, outbuf, d.outrate);
+  resample_mono(inbuf, d.inrate, d.inwidth, outbuf, d.outrate);
   postMessage("result", t);
-}
-
-function extract_buffer(inbuf, start, framecount, width) {
-  let outbuf = new Float32Array(framecount + width);
-  outbuf.set(inbuf.subarray(start, framecount), width/2);
-  return outbuf;
 }
 
 function find_cycle(inrate, outrate) {
@@ -49,8 +43,10 @@ function find_cycle(inrate, outrate) {
 function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
   let fmax = Math.min(inrate, outrate) * 0.49; // Cutoff frequency
   let r_g = 2 * fmax / inrate; // Gain Correction factor
-  let cycle = find_cycle(inrate, outrate);
   let halfinwidth = inwidth/2;
+  let inframecount = inbuf.length;
+  let outframecount = inframecount * outrate / inrate | 0;
+  let cycle = find_cycle(inrate, outrate);
   // c = fractional index
   // x = inbuf index
   // i = convolution window index
@@ -73,16 +69,30 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
     let c = 0;
     for (; numerator / outrate < halfinwidth; numerator += inrate, ++c) {
     }
-    let outsize = (inbuf.length - inwidth) * outrate / inrate | 0;
-    for (let y = 0; y < outsize; ++y, numerator += inrate, ++c) {
+    for (let y = 0; y < outframecount; ++y, numerator += inrate, ++c) {
       let x = numerator / outrate;
       // Compute factor table offset
       let c0 = c % cycle;
       let offset = c0 * inwidth;
       let r_y = 0;
-      for (let i = 0; i < inwidth; ++i) {
-        let j = x + i - halfinwidth | 0;
-        r_y += coeffs[offset + i] * inbuf2[j];
+      // Adjust the convolution window at the edges of the buffer
+      // *-->------------------|
+      // <*-->-----------------|
+      // <-*-->----------------|
+      // <--*-->---------------|
+      // |<--*-->--------------|
+      // |-------<--*-->-------|
+      // |--------------<--*-->|
+      // |---------------<--*-->
+      // |----------------<--*->
+      // |-----------------<--*>
+      // |------------------<--*
+      let start = x > halfinwidth ? 0 : halfinwidth - x | 0;
+      let count = x < inframecount - halfinwidth ?
+        inwidth : x - (inframecount - halfinwidth) | 0;
+      let j = x + start - halfinwidth | 0;
+      for (let i = start; i < count; ++i, ++j) {
+        r_y += coeffs[offset + i] * inbuf[j];
       }
       outbuf[y] = r_y;
     }
@@ -105,8 +115,7 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
     for (; numerator / outrate < halfinwidth;) {
       numerator += inrate;
     }
-    let outsize = (inbuf.length - inwidth - 2) * outrate / inrate | 0;
-    for (let y = 0; y < outsize; ++y, numerator += inrate) {
+    for (let y = 0; y < outframecount; ++y, numerator += inrate) {
       let x = numerator / outrate;
       let c = numerator % outrate / outrate * tablesize;
       //let c = (x - (x | 0)) * tablesize;
@@ -119,9 +128,12 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
       let f0 = c1 - c;
       let f1 = c - c0;
       let r_y = 0;
-      for (let i = 0; i < inwidth; ++i) {
-        let j = x + i - halfinwidth | 0;
-        r_y += f0 * coeffs[offset0 + i] + f1 * coeffs[offset1 + i] * inbuf2[j];
+      let start = x > hafinwidth ? 0 : halfinwidth - x | 0;
+      let count = x < inframecount - halfinwidth ?
+        inwidth : x - (inframecount - halfinwidth) | 0;
+      let j = x + start - halfinwidth | 0;
+      for (let i = start; i < count; ++i, ++j) {
+        r_y += f0 * coeffs[offset0 + i] + f1 * coeffs[offset1 + i] * inbuf[j];
       }
       outbuf[y] = r_y;
     }

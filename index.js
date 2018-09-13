@@ -393,6 +393,32 @@ function resample(inbuffer, settings) {
   let outrate = settings.freq;
   global.outrate = outrate;
   let outchannels = settings.channels == "stereo" ? 2 : 1;
+  let inchannels = inbuffer.numberOfChannels;
+  let gain = settings.gain;
+  let width = get_window_width(settings);
+  let outbufs = resample_buf(inbuffer, width, outrate);
+  let outframecount = outbufs[0].length;
+  let outbuffer = settings.context.createBuffer(outchannels, outframecount, outrate);
+  if (inchannels == outchannels) {
+    for (let i = 0; i < inchannels; ++i) {
+      outbuffer.copyToChannel(outbufs[i], i);
+    }
+  } else if (inchannels < outchannels) {
+    for (let i = 0; i < outchannels; ++i) {
+      outbuffer.copyToChannel(outbufs[0], i);
+    }
+  } else {
+    let combined = outbufs[0].map((v, i) => 0.5 * (v + outbufs[1][i]));
+    outbuffer.copyToChannel(combined, 0);
+  }
+  global.outbuffer = outbuffer;
+  convert(outbuffer, settings);
+}
+function resample_old(inbuffer, settings) {
+  let inrate = inbuffer.sampleRate;
+  let outrate = settings.freq;
+  global.outrate = outrate;
+  let outchannels = settings.channels == "stereo" ? 2 : 1;
   let outframecount = inbuffer.duration * outrate;
   let outlength = outframecount; // * outchannels?
   let outbuffer = settings.context.createBuffer(outchannels, outlength, outrate); // outrate!
