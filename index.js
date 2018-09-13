@@ -1,4 +1,5 @@
 // vim: ts=2:sts=2:sw=2:et
+"use strict";
 let version = "0.2.4";
 let global = {};
 function setElement(element, value) {
@@ -699,7 +700,7 @@ function convertIDE(renderedBuffer, settings) {
   loop();
 }
 function convertSegments(renderedBuffer, settings) {
-  settings.player_name = player_name = get_player_name(settings);
+  let player_name = settings.player_name = get_player_name(settings);
   console.log("player_name: " + player_name);
   if (!players[player_name]) {
     text("convertMessage", "ERROR: Unsupported player: " + player_name);
@@ -813,7 +814,7 @@ function convertSegments(renderedBuffer, settings) {
         text("convertMessage", "ERROR: Internal error: bad size");
         bin = bin.slice(0, size); // XXX Should never trigger if limiter in loop() is working
       }
-      car = makecar(type, bin);
+      let car = makecar(type, bin);
       console.log("max: " + max + " size: " + size +
         " type: " + type);
       settings.extension = ".car";
