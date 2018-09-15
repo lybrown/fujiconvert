@@ -327,14 +327,13 @@ function getFrameCount(settings, buffer) {
     songframecount,
     userdurationframecount);
 }
-function extractBuffer(context, inbuf, offset, framecount, width) {
+function extractBuffer(context, inbuf, frameoffset, framecount) {
   let chancount = inbuf.numberOfChannels;
-  let samplerate = inbuf.sampleRate;
-  let outbuf = context.createBuffer(chancount, framecount + width, samplerate);
+  let outbuf = context.createBuffer(chancount, framecount, inbuf.sampleRate);
   for (let i = 0; i < chancount; ++i) {
     let inchan = inbuf.getChannelData(i);
     let outchan = outbuf.getChannelData(i);
-    outchan.set(inchan.subarray(offset, framecount), width/2);
+    outchan.set(inchan.subarray(frameoffset, framecount));
   }
   return outbuf;
 }
@@ -354,49 +353,57 @@ function decode(contents, settings) {
   let channelcount = settings.channels == "stereo" ? 2 : 1;
   let length = 1000;
   let samplerate = 48000;
-  let wavefile = new wav(contents);
-  if (wavefile.sampleRate !== undefined) {
-    console.log("Found RIFF WAVE with sample rate: " + wavefile.sampleRate);
-    samplerate = wavefile.sampleRate;
-  }
   console.log(`Creating OfflineAudioContext(${channelcount}, ${length}, ${samplerate})`);
   let context = new OfflineAudioContext(channelcount, length, samplerate);
   settings.context = context;
 
-  context.decodeAudioData(contents, function(buffer) {
+  let done = function(buffer) {
     bar("decodeBar", 1); // GUI: 100% progress
 
     global.outrate = settings.freq;
     global.outbuffer = buffer;
-    if (0) {
-      convert(buffer, settings);
-    } else {
-      let duration = buffer.duration - settings.offset;
-      if (duration < 0) {
-        text("decodeMessage", "Offset (" + settings.offset +
-          ") is larger than sound duration (" + buffer.duration + ")");
-        return;
-      }
 
-      let framecount = getFrameCount(settings, buffer);
-      let width = get_window_width(settings);
-
-      let newbuf = extractBuffer(context, buffer, settings.offset, framecount, width);
-      resample(newbuf, settings);
+    let duration = buffer.duration - settings.offset;
+    if (duration < 0) {
+      text("decodeMessage", "Offset (" + settings.offset +
+        ") is larger than sound duration (" + buffer.duration + ")");
+      return;
     }
-  }, function(e) {
-    text("decodeMessage", "Decode Error: " + e);
-  });
+
+    let framecount = getFrameCount(settings, buffer);
+    let frameoffset = settings.offset * buffer.sampleRate;
+    let newbuf = extractBuffer(context, buffer, frameoffset, framecount);
+    resample(newbuf, settings);
+  };
+
+  try {
+    let wav = readwav(contents);
+    console.log("WAVE sampleRate: " + wav.sampleRate);
+    console.log(wav);
+    let buf = wavToBuffer(wav, context);
+    done(buf);
+  } catch (e) {
+    console.log("Not a simple WAVE file: " + e);
+    console.log("Trying WebAudio decode");
+    context.decodeAudioData(contents, done, function(e) {
+      text("decodeMessage", "Decode Error: " + e);
+    });
+  }
 }
 function resample(inbuffer, settings) {
+  // Resample
   let inrate = inbuffer.sampleRate;
   let outrate = settings.freq;
+  if (inrate == outrate) {
+    applygain(inbuffer, settings.gain, settings);
+  }
   global.outrate = outrate;
   let outchannels = settings.channels == "stereo" ? 2 : 1;
   let inchannels = inbuffer.numberOfChannels;
   let gain = settings.gain;
   let width = get_window_width(settings);
   let outbufs = resample_buf(inbuffer, width, outrate);
+  // bar("decodeBar", oi/outframecount); // GUI: progress
   let outframecount = outbufs[0].length;
   let outbuffer = settings.context.createBuffer(outchannels, outframecount, outrate);
   if (inchannels == outchannels) {
@@ -408,91 +415,19 @@ function resample(inbuffer, settings) {
       outbuffer.copyToChannel(outbufs[0], i);
     }
   } else {
-    let combined = outbufs[0].map((v, i) => 0.5 * (v + outbufs[1][i]));
+    let combined = outbufs[0].map((v, i) => v + outbufs[1][i]);
+    gain *= 0.5;
     outbuffer.copyToChannel(combined, 0);
   }
-  global.outbuffer = outbuffer;
-  convert(outbuffer, settings);
+  applygain(outbuffer, gain, settings);
 }
-function resample_old(inbuffer, settings) {
-  let inrate = inbuffer.sampleRate;
-  let outrate = settings.freq;
-  global.outrate = outrate;
-  let outchannels = settings.channels == "stereo" ? 2 : 1;
-  let outframecount = inbuffer.duration * outrate;
-  let outlength = outframecount; // * outchannels?
-  let outbuffer = settings.context.createBuffer(outchannels, outlength, outrate); // outrate!
-  let xstep = inrate / outrate;
-  let fmax = Math.min(inrate, outrate) * 0.49; // Max frequency allowed
-  let inchannels = inbuffer.numberOfChannels;
-  let alim = inbuffer.length;
-  let indata = inbuffer.getChannelData(0);
-  let indata2 = inchannels > 1 ? inbuffer.getChannelData(1) : undefined;
-  let outdata = outbuffer.getChannelData(0);
-  let outdata2 = outchannels > 1 ? outbuffer.getChannelData(1) : undefined;
-  let gain = settings.gain;
-  let width = get_window_width(settings);
-  let oi = 0;
-  let oo = settings.offset * inrate;
-  console.log({
-    inrate:inrate,
-    outrate:outrate,
-    outchannels:outchannels,
-    outframecount:outframecount,
-    outlength:outlength,
-    xstep:xstep,
-    fmax:fmax,
-    inchannels:inchannels,
-    alim:alim,
-    gain:gain,
-    width:width,
-  });
-  let done = function() {
-    console.log("Resampling completed successfully");
-    global.outbuffer = outbuffer;
-    convert(outbuffer, settings);
-  };
-  let func = width == 1 ? (i, data) => data[i|0] : resamp;
-  let loop = function() {
-    let chunksteps = Math.min(outframecount - oi, 10000);
-    if (outchannels > 1 && inchannels > 1) {
-      for (let i = 0; i < chunksteps; ++i) {
-        let ii = oo + oi * xstep;
-        outdata[oi] = gain * func(ii, indata, alim, fmax, inrate, width);
-        outdata2[oi] = gain * func(ii, indata2, alim, fmax, inrate, width);
-        ++oi;
-      }
-    } else if (outchannels > 1) {
-      for (let i = 0; i < chunksteps; ++i) {
-        let ii = oo + oi * xstep;
-        outdata[oi] = outdata2[oi] =
-          gain * func(ii, indata, alim, fmax, inrate, width);
-        ++oi;
-      }
-    } else if (inchannels > 1) {
-      for (let i = 0; i < chunksteps; ++i) {
-        let ii = oo + oi * xstep;
-        outdata[oi] = 0.5 * gain * (
-          func(ii, indata, alim, fmax, inrate, width) + 
-          func(ii, indata2, alim, fmax, inrate, width));
-        ++oi;
-      }
-    } else {
-      for (let i = 0; i < chunksteps; ++i) {
-        let ii = oo + oi * xstep;
-        outdata[oi] = gain * func(ii, indata, alim, fmax, inrate, width);
-        ++oi;
-      }
-    }
-    bar("decodeBar", oi/outframecount); // GUI: progress
-    if (oi < outframecount) {
-      setTimeout(loop, 0);
-    } else {
-      bar("decodeBar", 1); // GUI: 100% progress
-      setTimeout(done, 0);
-    }
-  };
-  loop();
+function applygain(buf, gain, settings) {
+  // Apply gain
+  for (let i = 0; i < buf.numberOfChannels; ++i) {
+    buf.getChannelData(i).forEach((v, j, a) => a[j] = gain * v);
+  }
+  global.outbuffer = buf;
+  convert(buf, settings);
 }
 
 function ascii2internal(c) {

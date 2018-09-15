@@ -47,6 +47,14 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
   let inframecount = inbuf.length;
   let outframecount = inframecount * outrate / inrate | 0;
   let cycle = find_cycle(inrate, outrate);
+  console.log({
+    fmax:fmax,
+    r_g:r_g,
+    halfinwidth:halfinwidth,
+    inframecount:inframecount,
+    outframecount:outframecount,
+    cycle:cycle,
+  });
   // c = fractional index
   // x = inbuf index
   // i = convolution window index
@@ -65,16 +73,11 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
         coeffs[c*inwidth + i] = r_g * r_w * r_snc;
       }
     }
-    let numerator = 0;
-    let c = 0;
-    for (; numerator / outrate < halfinwidth; numerator += inrate, ++c) {
-    }
-    for (let y = 0; y < outframecount; ++y, numerator += inrate, ++c) {
+    for (let y = 0, numerator = 0; y < outframecount; ++y, numerator += inrate) {
       let x = numerator / outrate;
       // Compute factor table offset
-      let c0 = c % cycle;
-      let offset = c0 * inwidth;
-      let r_y = 0;
+      let cmod = y % cycle;
+      let offset = cmod * inwidth;
       // Adjust the convolution window at the edges of the buffer
       // *-->------------------|
       // <*-->-----------------|
@@ -91,6 +94,7 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
       let count = x < inframecount - halfinwidth ?
         inwidth : x - (inframecount - halfinwidth) | 0;
       let j = x + start - halfinwidth | 0;
+      let r_y = 0;
       for (let i = start; i < count; ++i, ++j) {
         r_y += coeffs[offset + i] * inbuf[j];
       }
@@ -118,7 +122,6 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
     for (let y = 0; y < outframecount; ++y, numerator += inrate) {
       let x = numerator / outrate;
       let c = numerator % outrate / outrate * tablesize;
-      //let c = (x - (x | 0)) * tablesize;
       // Compute coefficient table offsets
       let c0 = c | 0;
       let c1 = c0 + 1;
@@ -128,7 +131,7 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
       let f0 = c1 - c;
       let f1 = c - c0;
       let r_y = 0;
-      let start = x > hafinwidth ? 0 : halfinwidth - x | 0;
+      let start = x > halfinwidth ? 0 : halfinwidth - x | 0;
       let count = x < inframecount - halfinwidth ?
         inwidth : x - (inframecount - halfinwidth) | 0;
       let j = x + start - halfinwidth | 0;
