@@ -25,8 +25,6 @@ function readwav(buffer) {
   wav.byteRate = view.getUint32(28, LE);
   wav.blockAlign = view.getUint16(32, LE);
   wav.bitsPerSample = view.getUint16(34, LE);
-  wav.subChunk2ID = text(buffer.slice(36, 40));
-  wav.subChunk2Size = view.getUint32(40, LE);
   if (wav.chunkID != "RIFF") {
     throw "Wave file: No RIFF chunk";
   }
@@ -45,7 +43,17 @@ function readwav(buffer) {
   if (![8, 16, 24, 32].includes(wav.bitsPerSample)) {
     throw "Wave file: Unsupported bit depth: " + wav.bitsPerSample;
   }
-  if (wav.subChunk2ID != "data") {
+  for (let i = 36; i < buffer.byteLength;) {
+    let chunkID = text(buffer.slice(i, i+4)); i+=4;
+    let chunkSize = view.getUint32(i, LE); i+=4;
+    if (chunkID == "data") {
+      wav.dataOffset = i;
+      wav.dataSize = chunkSize;
+      break;
+    }
+    i += chunkSize;
+  }
+  if (!wav.dataOffset) {
     throw "Wave file: No data chunk";
   }
   return wav;
@@ -54,11 +62,11 @@ function readwav(buffer) {
 function wavToBuffer(wav, context) {
   // Convert PCM data to AudioBuffer
   let view = wav.view;
-  let framecount = wav.subChunk2Size / wav.blockAlign | 0;
+  let framecount = wav.dataSize / wav.blockAlign | 0;
   let buf = context.createBuffer(wav.numChannels, framecount, wav.sampleRate);
   for (let c = 0; c < wav.numChannels; ++c) {
     let ch = buf.getChannelData(c);
-    let x = 44 + c*wav.bitsPerSample/8;
+    let x = wav.dataOffset + c*wav.bitsPerSample/8;
     if (wav.bitsPerSample == 8) {
       for (let i = 0; i < framecount; ++i, x += wav.blockAlign) {
         ch[i] = view.getUint8(x) / 128 - 1;
