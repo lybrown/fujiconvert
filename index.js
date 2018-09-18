@@ -327,7 +327,7 @@ function getFrameCount(settings, buffer) {
     songframecount,
     userdurationframecount);
 }
-function extractBuffer(context, inbuf, frameoffset, framecount) {
+function cropBuffer(context, inbuf, frameoffset, framecount) {
   let chancount = inbuf.numberOfChannels;
   let outbuf = context.createBuffer(chancount, framecount, inbuf.sampleRate);
   for (let i = 0; i < chancount; ++i) {
@@ -358,10 +358,7 @@ function decode(contents, settings) {
   settings.context = context;
 
   let done = function(buffer) {
-    bar("decodeBar", 1); // GUI: 100% progress
-
     global.outrate = settings.freq;
-    global.outbuffer = buffer;
 
     let duration = buffer.duration - settings.offset;
     if (duration < 0) {
@@ -372,8 +369,12 @@ function decode(contents, settings) {
 
     let framecount = getFrameCount(settings, buffer);
     let frameoffset = settings.offset * buffer.sampleRate;
-    let newbuf = extractBuffer(context, buffer, frameoffset, framecount);
-    resample(newbuf, settings);
+    bar("decodeBar", 0.1); // GUI: progress
+    let cropbuf = cropBuffer(context, buffer, frameoffset, framecount);
+    bar("decodeBar", 0.2); // GUI: progress
+    let mixbuf = mix(cropbuf, settings);
+    bar("decodeBar", 0.3); // GUI: progress
+    resample(mixbuf, settings);
   };
 
   try {
@@ -390,46 +391,51 @@ function decode(contents, settings) {
     });
   }
 }
-function resample(inbuffer, settings) {
-  // Resample
-  let inrate = inbuffer.sampleRate;
-  let outrate = settings.freq;
-  if (inrate == outrate) {
-    applygain(inbuffer, settings.gain, settings);
-  }
-  global.outrate = outrate;
+function mix(inbuf, settings) {
+  // Mix
   let outchannels = settings.channels == "stereo" ? 2 : 1;
-  let inchannels = inbuffer.numberOfChannels;
+  let inchannels = inbuf.numberOfChannels;
+  let inframecount = inbuf.length;
+  let inrate = inbuf.sampleRate;
+  let outbuf = settings.context.createBuffer(outchannels, inframecount, inrate);
   let gain = settings.gain;
-  let width = get_window_width(settings);
-  let outbufs = resample_buf(inbuffer, width, outrate);
-  // bar("decodeBar", oi/outframecount); // GUI: progress
-  let outframecount = outbufs[0].length;
-  let outbuffer = settings.context.createBuffer(outchannels, outframecount, outrate);
+  let inchs = [];
+  for (let i = 0; i < inchannels; ++i) {
+    inchs[i] = inbuf.getChannelData(i);
+  }
   if (inchannels == outchannels) {
     for (let i = 0; i < inchannels; ++i) {
-      outbuffer.copyToChannel(outbufs[i], i);
+      outbuf.copyToChannel(inchs[i], i);
     }
   } else if (inchannels < outchannels) {
     for (let i = 0; i < outchannels; ++i) {
-      outbuffer.copyToChannel(outbufs[0], i);
+      outbuf.copyToChannel(inchs[0], i);
     }
   } else {
-    let combined = outbufs[0].map((v, i) => v + outbufs[1][i]);
+    let outch = outbuf.getChannelData(0);
+    inchs[0].forEach((v, i) => outch[i] = v + inchs[1][i]);
     gain *= 0.5;
-    outbuffer.copyToChannel(combined, 0);
   }
-  applygain(outbuffer, gain, settings);
-}
-function applygain(buf, gain, settings) {
   // Apply gain
-  for (let i = 0; i < buf.numberOfChannels; ++i) {
-    buf.getChannelData(i).forEach((v, j, a) => a[j] = gain * v);
+  for (let i = 0; i < outchannels; ++i) {
+    outbuf.getChannelData(i).forEach((v, j, a) => a[j] = gain * v);
   }
-  global.outbuffer = buf;
-  convert(buf, settings);
+  return outbuf;
 }
-
+function resample(inbuf, settings) {
+  let inrate = inbuf.sampleRate;
+  let outrate = global.outrate = settings.freq;
+  // Skip resample if input and output sample rates are the same
+  if (inrate == outrate) {
+    bar("decodeBar", 1); // GUI: 100% progress
+    convert(inbuf, settings);
+  } else {
+    let width = get_window_width(settings);
+    let outbuf = resample_buf(inbuf, width, outrate, settings.context);
+    bar("decodeBar", 1); // GUI: 100% progress
+    convert(outbuf, settings);
+  }
+}
 function ascii2internal(c) {
   let ch = c.charCodeAt(0);
   return ch < 32 ? ch + 64 : ch < 96 ? ch - 32 : ch;
@@ -449,7 +455,6 @@ function timefmt(secs) {
 }
 
 function splash(settings, labels) {
-  //             0123456789012345678901234567890123456789
   let text = "";
   if (settings.title) {
     text = text + trunc(" Title: " + settings.title, 40);
@@ -596,6 +601,7 @@ function getCarType(media, length) {
   return 0;
 }
 function convert(renderedBuffer, settings) {
+  global.outbuffer = renderedBuffer;
   if (settings.media == "ide") {
     convertIDE(renderedBuffer, settings);
   } else {

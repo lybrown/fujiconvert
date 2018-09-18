@@ -4,22 +4,29 @@
 
 "use strict";
 
-function resample_buf(inbuf, inwidth, outrate) {
-  let inbufs = []
-  for (let i = 0; i < inbuf.numberOfChannels; ++i) {
-    inbufs[i] = inbuf.getChannelData(i);
+function resample_buf(inbuf, inwidth, outrate, context) {
+  let channelcount = inbuf.numberOfChannels;
+  let inframecount = inbuf.length;
+  let inrate = inbuf.sampleRate;
+  let outframecount = inframecount * outrate / inrate | 0;
+  let outbuf = context.createBuffer(channelcount, outframecount, outrate);
+  for (let i = 0; i < channelcount; ++i) {
+    let inch = inbuf.getChannelData(i);
+    let outch = outbuf.getChannelData(i);
+    resample_mono(inch, inrate, inwidth, outch, outrate);
   }
-  return resample_raw(inbufs, inwidth, inbuf.sampleRate, outrate);
+  return outbuf;
 }
 
-function resample_raw(inbufs, inwidth, inrate, outrate) {
-  //let worker = new Worker("resample.js");
+async function resample_raw(inbufs, inwidth, inrate, outrate) {
+  let worker = new Worker("resample.js");
   let outbufs = [];
   let inframecount = inbufs[0].length;
   let outframecount = inframecount * outrate / inrate | 0;
   for (let i = 0; i < inbufs.length; ++i) {
     outbufs[i] = new Float32Array(outframecount + 1);
-    resample_mono(inbufs[i], inrate, inwidth, outbufs[i], outrate);
+    let msg = {inrate:inrate, inwidth:inwidth, outrate:outrate};
+    worker.postMessage(msg, [inbuf[i], outbuf[i]]);
   }
   return outbufs;
 }
@@ -43,7 +50,7 @@ function find_cycle(inrate, outrate) {
 function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
   let fmax = Math.min(inrate, outrate) * 0.49; // Cutoff frequency
   let r_g = 2 * fmax / inrate; // Gain Correction factor
-  let halfinwidth = inwidth/2;
+  let halfinwidth = inwidth >> 1;
   let inframecount = inbuf.length;
   let outframecount = inframecount * outrate / inrate | 0;
   let cycle = find_cycle(inrate, outrate);
@@ -55,28 +62,29 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
     outframecount:outframecount,
     cycle:cycle,
   });
-  // c = fractional index
-  // x = inbuf index
-  // i = convolution window index
-  // y = outbuf index
+  // ii = inbuf index
+  // ci = convolution window cardinal index (0, 1, 2 .. N)
+  // wi = convolution window centered index (-width/2 + frac .. width/2 + frac)
+  // ai = convolution window absolute index (ii - width/2 .. ii + width/2)
+  // oi = outbuf index
   if (cycle) {
     // cycle
     let coeffs = [];
-    for (let c = 0; c < cycle; ++c) {
-      let x = c * inrate / outrate;
-      for (let i = 0; i < inwidth; ++i) {
-        let j = x + i - halfinwidth | 0;
+    for (let oi = 0; oi < cycle; ++oi) {
+      let ii = oi * inrate / outrate;
+      let wi = -halfinwidth + oi * inrate % outrate / outrate;
+      for (let ci = 0; ci < inwidth; ++ci, ++wi) {
         // calculate von Hann Window. Scale and calculate Sinc
-        let r_w = 0.5 - 0.5 * Math.cos(2*Math.PI*(0.5 + (j - x)/inwidth));
-        let r_a = Math.PI*(j - x)*r_g;
+        let r_w = 0.5 - 0.5 * Math.cos(2*Math.PI*(0.5 + wi/inwidth));
+        let r_a = Math.PI*wi*r_g;
         let r_snc = Math.abs(r_a) < 1e-10 ? 1 : Math.sin(r_a)/r_a;
-        coeffs[c*inwidth + i] = r_g * r_w * r_snc;
+        coeffs[oi*inwidth + ci] = r_g * r_w * r_snc;
       }
     }
-    for (let y = 0, numerator = 0; y < outframecount; ++y, numerator += inrate) {
-      let x = numerator / outrate;
+    for (let oi = 0, numerator = 0; oi < outframecount; ++oi, numerator += inrate) {
+      let ii = numerator / outrate;
       // Compute factor table offset
-      let cmod = y % cycle;
+      let cmod = oi % cycle;
       let offset = cmod * inwidth;
       // Adjust the convolution window at the edges of the buffer
       // *-->------------------|
@@ -90,15 +98,14 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
       // |----------------<--*->
       // |-----------------<--*>
       // |------------------<--*
-      let start = x > halfinwidth ? 0 : halfinwidth - x | 0;
-      let count = x < inframecount - halfinwidth ?
-        inwidth : x - (inframecount - halfinwidth) | 0;
-      let j = x + start - halfinwidth | 0;
+      let instart = Math.max(ii - halfinwidth | 0, 0);
+      let inend = Math.min(ii + halfinwidth | 0, inframecount);
+      let ci = instart - (ii - halfinwidth | 0);
       let r_y = 0;
-      for (let i = start; i < count; ++i, ++j) {
-        r_y += coeffs[offset + i] * inbuf[j];
+      for (let ai = instart; ai < inend; ++ai, ++ci) {
+        r_y += coeffs[offset + ci] * inbuf[ai];
       }
-      outbuf[y] = r_y;
+      outbuf[oi] = r_y;
     }
   } else {
     // interpolate

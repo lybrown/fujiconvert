@@ -10,7 +10,7 @@ function readwav(buffer) {
     return (new TextDecoder("utf-8")).decode(buf);
   };
   let view = new DataView(buffer);
-  let LE = true; // WAVE files are little-endian
+  const LE = true; // RIFF files are little-endian
   let wav = {};
   wav.buffer = buffer;
   wav.view = view;
@@ -42,8 +42,8 @@ function readwav(buffer) {
   if (wav.audioFormat != 1) {
     throw "Wave file: Not PCM: " + wav.audioFormat;
   }
-  if (wav.bitsPerSample != 8 && wav.bitsPerSample != 16) {
-    throw "Wave file: Unsupported bitdepth: " + wav.bitsPerSample;
+  if (![8, 16, 24, 32].includes(wav.bitsPerSample)) {
+    throw "Wave file: Unsupported bit depth: " + wav.bitsPerSample;
   }
   if (wav.subChunk2ID != "data") {
     throw "Wave file: No data chunk";
@@ -66,6 +66,16 @@ function wavToBuffer(wav, context) {
     } else if (wav.bitsPerSample == 16) {
       for (let i = 0; i < framecount; ++i, x += wav.blockAlign) {
         ch[i] = view.getInt16(x, true) / 32768;
+      }
+    } else if (wav.bitsPerSample == 24) {
+      for (let i = 0; i < framecount; ++i, x += wav.blockAlign) {
+        // Shift out high 8 bits then shift back with sign extension.
+        // Assumes 32-bit bitops.
+        ch[i] = (view.getUInt32(x, true) << 8 >> 8) / (1<<23)
+      }
+    } else if (wav.bitsPerSample == 32) {
+      for (let i = 0; i < framecount; ++i, x += wav.blockAlign) {
+        ch[i] = view.getInt32(x, true) / (1<<31);
       }
     }
   }
