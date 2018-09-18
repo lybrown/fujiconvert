@@ -62,30 +62,40 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
     outframecount:outframecount,
     cycle:cycle,
   });
+  if (inwidth < 2) {
+    console.log("No resample: " + inwidth);
+    for (let oi = 0; oi < outframecount; ++oi) {
+      let ii = oi * inrate / outrate;
+      outbuf[oi] = inbuf[ii];
+    }
+    return;
+  }
   // ii = inbuf index
   // ci = convolution window cardinal index (0, 1, 2 .. N)
   // wi = convolution window centered index (-width/2 + frac .. width/2 + frac)
   // ai = convolution window absolute index (ii - width/2 .. ii + width/2)
+  // ti = coefficient table index
   // oi = outbuf index
   if (cycle) {
     // cycle
     let coeffs = [];
-    for (let oi = 0; oi < cycle; ++oi) {
-      let ii = oi * inrate / outrate;
-      let wi = -halfinwidth + oi * inrate % outrate / outrate;
+    for (let ti = 0; ti < cycle; ++ti) {
+      let ii = ti * inrate / outrate;
+      let wi = -halfinwidth - ti * inrate % outrate / outrate;
       for (let ci = 0; ci < inwidth; ++ci, ++wi) {
         // calculate von Hann Window. Scale and calculate Sinc
         let r_w = 0.5 - 0.5 * Math.cos(2*Math.PI*(0.5 + wi/inwidth));
         let r_a = Math.PI*wi*r_g;
-        let r_snc = Math.abs(r_a) < 1e-10 ? 1 : Math.sin(r_a)/r_a;
-        coeffs[oi*inwidth + ci] = r_g * r_w * r_snc;
+        let r_snc = r_a ? Math.sin(r_a)/r_a : 1;
+        coeffs[ti*inwidth + ci] = r_g * r_w * r_snc;
       }
     }
-    for (let oi = 0, numerator = 0; oi < outframecount; ++oi, numerator += inrate) {
+    let numerator = 0;
+    for (let oi = 0; oi < outframecount; ++oi, numerator += inrate) {
       let ii = numerator / outrate;
       // Compute factor table offset
-      let cmod = oi % cycle;
-      let offset = cmod * inwidth;
+      let ti = oi % cycle;
+      let offset = ti * inwidth;
       // Adjust the convolution window at the edges of the buffer
       // *-->------------------|
       // <*-->-----------------|
@@ -111,41 +121,37 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
     // interpolate
     let coeffs = [];
     let tablesize = 1024;
-    for (let c = 0; c <= tablesize; ++c) {
-      let x = c / tablesize;
-      for (let i = 0; i < inwidth; ++i) {
-        let j = x + i - halfinwidth | 0;
+    for (let ti = 0; ti <= tablesize; ++ti) {
+      let ii = ti / tablesize;
+      let wi = -halfinwidth - ii;
+      for (let ci = 0; ci < inwidth; ++ci, ++wi) {
         // calculate von Hann Window. Scale and calculate Sinc
-        let r_w = 0.5 - 0.5 * Math.cos(2*Math.PI*(0.5 + (j - x)/inwidth));
-        let r_a = Math.PI*(j - x)*r_g;
-        let r_snc = Math.abs(r_a) < 1e-10 ? 1 : Math.sin(r_a)/r_a;
-        coeffs[c*inwidth + i] = r_g * r_w * r_snc;
+        let r_w = 0.5 - 0.5 * Math.cos(2*Math.PI*(0.5 + wi/inwidth));
+        let r_a = Math.PI*wi*r_g;
+        let r_snc = r_a ? Math.sin(r_a)/r_a : 1;
+        coeffs[ti*inwidth + ci] = r_g * r_w * r_snc;
       }
     }
     let numerator = 0;
-    for (; numerator / outrate < halfinwidth;) {
-      numerator += inrate;
-    }
-    for (let y = 0; y < outframecount; ++y, numerator += inrate) {
-      let x = numerator / outrate;
-      let c = numerator % outrate / outrate * tablesize;
+    for (let oi = 0; oi < outframecount; ++oi, numerator += inrate) {
+      let ii = numerator / outrate;
+      let frac = numerator % outrate / outrate * tablesize;
       // Compute coefficient table offsets
-      let c0 = c | 0;
-      let c1 = c0 + 1;
-      let offset0 = c0 * inwidth;
-      let offset1 = c1 * inwidth;
+      let ti0 = frac | 0;
+      let ti1 = ti0 + 1;
+      let offset0 = ti0 * inwidth;
+      let offset1 = ti1 * inwidth;
       // Compute linear interpolation coeffs;
-      let f0 = c1 - c;
-      let f1 = c - c0;
+      let f0 = ti1 - frac;
+      let f1 = frac - ti0;
+      let instart = Math.max(ii - halfinwidth | 0, 0);
+      let inend = Math.min(ii + halfinwidth | 0, inframecount);
+      let ci = instart - (ii - halfinwidth | 0);
       let r_y = 0;
-      let start = x > halfinwidth ? 0 : halfinwidth - x | 0;
-      let count = x < inframecount - halfinwidth ?
-        inwidth : x - (inframecount - halfinwidth) | 0;
-      let j = x + start - halfinwidth | 0;
-      for (let i = start; i < count; ++i, ++j) {
-        r_y += f0 * coeffs[offset0 + i] + f1 * coeffs[offset1 + i] * inbuf[j];
+      for (let ai = instart; ai < inend; ++ai, ++ci) {
+        r_y += (f0 * coeffs[offset0 + ci] + f1 * coeffs[offset1 + ci]) * inbuf[ai];
       }
-      outbuf[y] = r_y;
+      outbuf[oi] = r_y;
     }
   }
 }
