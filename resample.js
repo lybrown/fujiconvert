@@ -13,18 +13,14 @@ function resample_buf(inbuf, inwidth, outrate, context) {
   for (let i = 0; i < channelcount; ++i) {
     let inch = inbuf.getChannelData(i);
     let outch = outbuf.getChannelData(i);
-    resample_mono(inch, inrate, inwidth, outch, outrate);
+    resample_mono(inch, inrate, inwidth, outch, outrate, () => 0);
   }
   return outbuf;
 }
 
-async function resample_raw(inbufs, inwidth, inrate, outrate) {
+async function resample_raw(inbufs, inwidth, inrate, outbufs, outrate) {
   let worker = new Worker("resample.js");
-  let outbufs = [];
-  let inframecount = inbufs[0].length;
-  let outframecount = inframecount * outrate / inrate | 0;
   for (let i = 0; i < inbufs.length; ++i) {
-    outbufs[i] = new Float32Array(outframecount + 1);
     let msg = {inrate:inrate, inwidth:inwidth, outrate:outrate};
     worker.postMessage(msg, [inbuf[i], outbuf[i]]);
   }
@@ -47,16 +43,17 @@ function find_cycle(inrate, outrate) {
   return 0;
 }
 
-function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
+function resample_mono(inbuf, inrate, inwidth, outbuf, outrate, onprogress) {
   let fmax = Math.min(inrate, outrate) * 0.49; // Cutoff frequency
   let r_g = 2 * fmax / inrate; // Gain Correction factor
-  let halfinwidth = inwidth >> 1;
+  let halfinwidth = inwidth >> 1; // Half of convolution window width
   let inframecount = inbuf.length;
   let outframecount = inframecount * outrate / inrate | 0;
   let cycle = find_cycle(inrate, outrate);
   console.log({
     fmax:fmax,
     r_g:r_g,
+    inwidth:inwidth,
     halfinwidth:halfinwidth,
     inframecount:inframecount,
     outframecount:outframecount,
@@ -65,7 +62,7 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
   if (inwidth < 2) {
     console.log("No resample: " + inwidth);
     for (let oi = 0; oi < outframecount; ++oi) {
-      let ii = oi * inrate / outrate;
+      let ii = oi * inrate / outrate | 0;
       outbuf[oi] = inbuf[ii];
     }
     return;
@@ -77,8 +74,8 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
   // ti = coefficient table index
   // oi = outbuf index
   if (cycle) {
-    // cycle
-    let coeffs = [];
+    // If there is a cycle, then we can compute an exact coefficient table
+    let coeffs = new Float32Array(cycle * inwidth);
     for (let ti = 0; ti < cycle; ++ti) {
       let ii = ti * inrate / outrate;
       let wi = -halfinwidth - ti * inrate % outrate / outrate;
@@ -90,8 +87,13 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
         coeffs[ti*inwidth + ci] = r_g * r_w * r_snc;
       }
     }
+    let section = outframecount / 50;
     let numerator = 0;
     for (let oi = 0; oi < outframecount; ++oi, numerator += inrate) {
+      if (oi > section) {
+        onprogress(oi / outframecount);
+        section += outframecount / 50;
+      }
       let ii = numerator / outrate;
       // Compute factor table offset
       let ti = oi % cycle;
@@ -118,9 +120,9 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
       outbuf[oi] = r_y;
     }
   } else {
-    // interpolate
-    let coeffs = [];
+    // No cycle, so compute 1K window offsets (overkill?) and interpolate
     let tablesize = 1024;
+    let coeffs = new Float32Array((tablesize + 1) * inwidth);
     for (let ti = 0; ti <= tablesize; ++ti) {
       let ii = ti / tablesize;
       let wi = -halfinwidth - ii;
@@ -132,8 +134,13 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate) {
         coeffs[ti*inwidth + ci] = r_g * r_w * r_snc;
       }
     }
+    let section = outframecount / 50;
     let numerator = 0;
     for (let oi = 0; oi < outframecount; ++oi, numerator += inrate) {
+      if (oi > section) {
+        onprogress(oi / outframecount);
+        section += outframecount / 50;
+      }
       let ii = numerator / outrate;
       let frac = numerator % outrate / outrate * tablesize;
       // Compute coefficient table offsets

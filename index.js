@@ -1,6 +1,6 @@
 // vim: ts=2:sts=2:sw=2:et
 "use strict";
-let version = "0.2.4";
+let version = "0.2.5";
 let global = {};
 function setElement(element, value) {
   if (element[0] && element[0].type == "radio") {
@@ -333,16 +333,16 @@ function cropBuffer(context, inbuf, frameoffset, framecount) {
   for (let i = 0; i < chancount; ++i) {
     let inchan = inbuf.getChannelData(i);
     let outchan = outbuf.getChannelData(i);
-    outchan.set(inchan.subarray(frameoffset, framecount));
+    outchan.set(inchan.subarray(frameoffset, frameoffset + framecount));
   }
   return outbuf;
 }
 function get_window_width(settings) {
   switch (settings.resampling_effort) {
-    case "ultra": return 1024;
-    case "high": return 256;
-    case "medium": return 128;
-    case "low": return 16;
+    case "ultra": return 2048;
+    case "high": return 1024;
+    case "medium": return 256;
+    case "low": return 32;
     default: return 1;
   }
 }
@@ -825,14 +825,14 @@ function convertSegments(renderedBuffer, settings) {
         for (l = k; l < buflen; l+=0x100, ++i) {
           if (stereo) {
             let ifix = i < data.length ? i : data.length-1;
-            hi = map_sample(data[ifix]);
-            lo = map_sample(data2[ifix]);
+            let hi = map_sample(data[ifix]);
+            let lo = map_sample(data2[ifix]);
             part[l] = hi << 4 | lo;
           } else {
             let ifix = i < data.length-1 ? i : data.length-2;
-            hi = map_sample(data[ifix]);
+            let hi = map_sample(data[ifix]);
             ++ifix; ++i;
-            lo = map_sample(data[ifix]);
+            let lo = map_sample(data[ifix]);
             part[l] = hi << 4 | lo;
           }
         }
