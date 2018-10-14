@@ -44,7 +44,7 @@ function find_cycle(inrate, outrate) {
 }
 
 function resample_mono(inbuf, inrate, inwidth, outbuf, outrate, onprogress) {
-  let fmax = Math.min(inrate, outrate) * 0.49; // Cutoff frequency
+  let fmax = Math.min(inrate, outrate) * 0.45; // Cutoff frequency
   let r_g = 2 * fmax / inrate; // Gain Correction factor
   let halfinwidth = inwidth >> 1; // Half of convolution window width
   let inframecount = inbuf.length;
