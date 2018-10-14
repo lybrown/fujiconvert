@@ -308,18 +308,25 @@ function getFrameCount(settings, buffer) {
   //   User byte limit
   //   User duration limit
 
+  let inrate = buffer.sampleRate;
+  let outrate = settings.freq;
+
   let mediacapacity = getMediaCapacity(settings);
-  let mediaframecount = bytesToFrames(settings, mediacapacity);
+  let mediaframecount = inrate / outrate * bytesToFrames(settings, mediacapacity) | 0;
+  console.log("mediaframecount: " + mediaframecount);
 
   let usercapacity = getUserLimit(settings);
-  let userframecount = bytesToFrames(settings, usercapacity);
+  let userframecount = inrate / outrate * bytesToFrames(settings, usercapacity) | 0;
+  console.log("userframecount: " + userframecount);
 
   let songframecount = buffer ? buffer.length : 1 << 32;
+  console.log("songframecount: " + songframecount);
 
   let remainingduration = Math.max(buffer.duration - settings.offset, 0);
   let userduration = settings.duration > 0 ?
     Math.min(settings.duration, remainingduration) : 1000 * 60;
   let userdurationframecount = durationToFrames(settings, userduration);
+  console.log("userdurationframecount: " + userdurationframecount);
 
   return Math.min(
     mediaframecount,
@@ -369,8 +376,10 @@ function decode(contents, settings) {
 
     let framecount = settings.framecount = getFrameCount(settings, buffer);
     let frameoffset = settings.offset * buffer.sampleRate;
+    console.log("framecount: " + framecount + " frameoffset: " + frameoffset);
     bar("decodeBar", 0.1); // GUI: progress
     let cropbuf = cropBuffer(context, buffer, frameoffset, framecount);
+    console.log("cropbuf.length: " + cropbuf.length);
     bar("decodeBar", 0.2); // GUI: progress
     let mixbuf = mix(cropbuf, settings);
     bar("decodeBar", 0.3); // GUI: progress
@@ -638,7 +647,8 @@ function convertIDE(renderedBuffer, settings) {
     (stereo ? maxbytes >> 1 : maxbytes) *
     (settings.method == "pcm4" ? 2 : 1),
     data.length);
-  console.log("maxbytes: " + maxbytes + " maxframes: " + maxframes);
+  console.log("maxbytes: " + maxbytes + " maxframes: " + maxframes +
+    " data.length: " + data.length);
   let i = 0; // source index
   let j = 0; // destination sector index
   let loop = function() {
@@ -671,6 +681,7 @@ function convertIDE(renderedBuffer, settings) {
 function convertSegments(renderedBuffer, settings) {
   let player_name = settings.player_name = get_player_name(settings);
   console.log("player_name: " + player_name);
+  console.log("renderedBuffer.length: " + renderedBuffer.length);
   if (!players[player_name]) {
     text("convertMessage", "ERROR: Unsupported player: " + player_name);
   }
@@ -814,7 +825,8 @@ function convertSegments(renderedBuffer, settings) {
     (stereo ? maxbytes >> 1 : maxbytes) *
     (settings.method == "pcm4" ? 2 : 1),
     data.length);
-  console.log("maxbytes: " + maxbytes + " maxframes: " + maxframes);
+  console.log("maxbytes: " + maxbytes + " maxframes: " + maxframes +
+    " data.length: " + data.length);
   let i = 0; // source index
   let loop = function() {
     let k; // page offset
