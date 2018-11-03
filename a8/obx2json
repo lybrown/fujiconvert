@@ -27,9 +27,10 @@ sub parse_labels {
             my $value = hex($1);
             my $name = $2;
             # Exclude hardware labels
-            if (not ($value >= 0xD000 and $value <= 0xD7FF)) {
-                $labels{lc $2} = hex($1);
-            }
+            next if $value >= 0xD000 and $value <= 0xD7FF;
+            # Exclude nops
+            next if $name =~ /nop/i;
+            $labels{lc $name} = $value;
         }
     }
     return \%labels;

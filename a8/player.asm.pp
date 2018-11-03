@@ -9,6 +9,7 @@ NOP equ $FE00
     org $80
 ; bank
     org *+2
+bank80 org *+1
 diff org *+2
 page org *+1
 
@@ -403,7 +404,23 @@ play
 >>> for ($page = $frame = 0; $page < $pages; $page += $pages_per_frame, ++$frame) {
     ; frame <<<$frame>>> page <<<$page>>>
 >>>   $cycles = sample($page, ($frame&1) == 0 && $frame != $frames - 2);
->>>   if ($frame == $frames - 11) {
+>>>   if ($frame == $frames - 19) {
+    mva bank HPOSP2 ; 7 cycles +1 if thecart
+>>>     $cycles += 7;
+>>>     $cycles += $thecart ? 1 : 0;
+>>>   } elsif ($frame == $frames - 17) {
+    clc ; 2 cycles
+>>>     $cycles += 2;
+>>>   } elsif ($frame == $frames - 15) {
+    lda bank ; 3 cycles +1 if thecart
+    adc #$80 ; 2 cycles
+    sta bank80 ; 3 cycles
+>>>     $cycles += 8;
+>>>     $cycles += $thecart ? 1 : 0;
+>>>   } elsif ($frame == $frames - 13) {
+    mva bank80 HPOSP3 ; 7 cycles
+>>>     $cycles += 7;
+>>>   } elsif ($frame == $frames - 11) {
     lda bank ; 3 cycles +1 if thecart
 endlo
     eor #$FF ; 2 cycles
@@ -440,6 +457,7 @@ detectkeyevent
 >>>     }
     beq next ; 2 cycles +1 if taken same page
 branch
+>>>     $cyclesnext = $cycles + 6; # beq next taken + jmp nextbank
 >>>     $cycles += 5; # beq next + jmp play
 >>>     nop($period - $cycles);
     jmp play ; 3 cycles
@@ -457,7 +475,7 @@ donekey
 next
     ; ert [>next]!=[>branch]
 >>>     if ($ram or $cart) {
-    jmp nextbank
+    jmp nextbank ; 3 cycles
 >>>     } elsif ($emulator) {
     rts ; return to loader
 >>>     } else { die; }
@@ -490,6 +508,8 @@ keydown
 >>> }
     jmp donekey
 
+;>>> sub relaxednop { nop($_[0] < 0 ? 0 : $_[0]) }
+>>> sub relaxednop { nop($_[0]) }
 ;========================================
 ; bank
 ;========================================
@@ -498,19 +518,18 @@ keydown
 prevbank
     :3 dec bank
 nextbank
-    ldx bank
-    stx HPOSP2
-    txa
-    add #$80
-    sta HPOSP3
-    lda banks,x
-    bne nextbank2
+    ldx bank ; 3 cycles
+    lda banks,x ; 4 cycles
+    bne nextbank2 ; 3 cycles + 1 if cross page boundary
     mva #0 bank
     lda banks+0
 nextbank2
-    sta PORTB
-    inc bank
-    jmp play
+    sta PORTB ; 4 cycles
+    inc bank ; 5 cycles
+>>>   $cyclesnext += 3 + 19;
+    ; period=<<<$period>>> cycles=<<<$cyclesnext>>>
+>>>   relaxednop($period - $cyclesnext);
+    jmp play ; 3 cycles
 initbank
     mwa #0 bank
     tay
@@ -519,15 +538,13 @@ initbank
 prevbank
     :4 dec bank
 nextbank
-    ldx bank
-    stx HPOSP2
-    txa
-    add #$80
-    sta HPOSP3
-    stx $D500
-    inx
-    stx bank
-    jmp play
+    ldx bank ; 3 cycles
+    stx $D500 ; 4 cycles
+    inx ; 2 cycles
+    stx bank ; 3 cycles
+>>>   $cyclesnext += 3 + 12;
+>>>   relaxednop($period - $cyclesnext);
+    jmp play ; 3 cycles
 initbank
     mwa #<<<$xegs ? 0 : 1>>> bank
     ldy #0
@@ -536,16 +553,15 @@ initbank
 prevbank
     :4 dec bank
 nextbank
-    lda bank
-    sta HPOSP2
-    add #$80
-    sta HPOSP3
-    and #$7F ; don't disable the cart
-    tax
-    sta $D500,x
-    inx
-    stx bank
-    jmp play
+    lda bank ; 3 cycles
+    and #$7F ; don't disable the cart ; 2 cycles
+    tax ; 2 cycles
+    sta $D500,x ; 4 cycles
+    inx ; 2 cycles
+    stx bank ; 3 cycles
+>>>   $cyclesnext += 3 + 16;
+>>>   relaxednop($period - $cyclesnext);
+    jmp play ; 3 cycles
 initbank
     mwa #<<<$megamax ? 1 : 0>>> bank
     ldy #0
@@ -555,16 +571,14 @@ prevbank
     :4 dec bank
     ldy #0
 nextbank
-    lda bank
-    sta HPOSP2
-    and #$1F
-    ora #$20
-    sta $D500
-    lda bank
-    add #$80
-    sta HPOSP3
-    inc bank
-    jmp play
+    lda bank ; 3 cycles
+    and #$1F ; 2 cycles
+    ora #$20 ; 2 cycles
+    sta $D500 ; 4 cycles
+    inc bank ; 5 cycles
+>>>   $cyclesnext += 3 + 16;
+>>>   relaxednop($period - $cyclesnext);
+    jmp play ; 3 cycles
 initbank
     mwa #1 bank
     ldy #0
@@ -572,9 +586,6 @@ initbank
 >>> } elsif ($thecart) {
 prevbank
     lda $D5A0
-    sta HPOSP2
-    add #$80
-    sta HPOSP3
     lda #$FC
     add:sta $D5A0
     lda #$FF
@@ -584,11 +595,10 @@ initbank
     mwa #0 $D5A0 ; next bank will advance to 1, so zero is OK here
     tay
 nextbank
-    mva $D5A0 HPOSP2 ; 8 cycles
-    add #$80 ; 2 cycles
-    sta HPOSP3 ; 4 cycles
     inc $D5A0 ; 6 cycles
     sne:inc $D5A1 ; 3 cycles
+>>>   $cyclesnext += 3 + 9;
+>>>   relaxednop($period - $cyclesnext);
     jmp play ; 3 cycles
 >>> } elsif  ($emulator) {
 initbank

@@ -64,6 +64,7 @@ function wavToBuffer(wav, context) {
   let view = wav.view;
   let framecount = wav.dataSize / wav.blockAlign | 0;
   let buf = context.createBuffer(wav.numChannels, framecount, wav.sampleRate);
+  const LE = true; // RIFF files are little-endian
   for (let c = 0; c < wav.numChannels; ++c) {
     let ch = buf.getChannelData(c);
     let x = wav.dataOffset + c*wav.bitsPerSample/8;
@@ -73,17 +74,17 @@ function wavToBuffer(wav, context) {
       }
     } else if (wav.bitsPerSample == 16) {
       for (let i = 0; i < framecount; ++i, x += wav.blockAlign) {
-        ch[i] = view.getInt16(x, true) / 32768;
+        ch[i] = view.getInt16(x, LE) / 32768;
       }
     } else if (wav.bitsPerSample == 24) {
       for (let i = 0; i < framecount; ++i, x += wav.blockAlign) {
         // Shift out high 8 bits then shift back with sign extension.
         // Assumes 32-bit bitops.
-        ch[i] = (view.getUInt32(x, true) << 8 >> 8) / (1<<23)
+        ch[i] = (view.getUInt32(x, LE) << 8 >> 8) / (1<<23)
       }
     } else if (wav.bitsPerSample == 32) {
       for (let i = 0; i < framecount; ++i, x += wav.blockAlign) {
-        ch[i] = view.getInt32(x, true) / (1<<31);
+        ch[i] = view.getInt32(x, LE) / (1<<31);
       }
     }
   }
