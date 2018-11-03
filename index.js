@@ -780,15 +780,15 @@ function convertSegments(renderedBuffer, settings) {
       player_u8[labels.endhi+1 - labels.relocated_start] = endbank >> 8;
       bin.set(player_u8, player_offset);
       console.log({
-        endbank:endbank,
-        datalen:datalen,
-        max:max,
-        type:type,
-        fullsize:fullsize,
-        size:size,
-        mediaoffset:mediaoffset,
-        mediaend:mediaend,
-        player_offset:player_offset,
+        endbank,
+        datalen,
+        max,
+        type,
+        fullsize,
+        size,
+        mediaoffset,
+        mediaend,
+        player_offset,
       });
       if (!player0 && bin.length > size) {
         text("convertMessage", "ERROR: Internal error: bad size");

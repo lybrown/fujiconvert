@@ -51,13 +51,13 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate, onprogress) {
   let outframecount = inframecount * outrate / inrate | 0;
   let cycle = find_cycle(inrate, outrate);
   console.log({
-    fmax:fmax,
-    r_g:r_g,
-    inwidth:inwidth,
-    halfinwidth:halfinwidth,
-    inframecount:inframecount,
-    outframecount:outframecount,
-    cycle:cycle,
+    fmax,
+    r_g,
+    inwidth,
+    halfinwidth,
+    inframecount,
+    outframecount,
+    cycle,
   });
   if (inwidth < 2) {
     console.log("Using nearest neighbor since inwidth=" + inwidth);

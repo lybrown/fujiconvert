@@ -171,6 +171,15 @@ resetsound
 >>> }
     rts
 
+silence
+>>> if ($pwm) {
+    mva #0 AUDC1
+>>>   if ($stereo) {
+    sta  AUDC1+$10
+>>>   }
+>>> }
+    rts
+
 initsound
 >>> if ($pcm44) {
     ; 1.79Mhz for channel 1
@@ -607,7 +616,7 @@ nextbank
     jmp donekey
 >>> }
 pauseplay
-    jsr resetsound
+    jsr silence
     lda SKSTAT
     and #4
     beq pauseplay
