@@ -55,7 +55,7 @@ sub main {
         my $name = $2;
         my $lab = "$dir$name.lab";
         my $l = $players{$name}{labels} = parse_labels($lab);
-        if (($l->{slow_cycles}//0) <= 5 and ($l->{fast_cycles}//0) <= 5) {
+        if (($l->{slow_cycles}//0) <= 15 and ($l->{fast_cycles}//0) <= 5) {
             $players{$name}{player} = parse_obx($obx);
         }
     }

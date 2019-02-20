@@ -279,15 +279,15 @@ main
 >>>     return (23 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
 >>>   } elsif ($pcm44) {
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
-    mva hi,x AUDC3 ; 8 cycles
     mva lo,x AUDC1 ; 8 cycles
+    mva hi,x AUDC3 ; 8 cycles
 >>>     if ($hpos) {
     stx HPOSP0 ; 4 cycles
 >>>     }
 >>>     if ($stereo) {
     ldx <<<$window>>>+<<<$page+1>>>*$100,y ; 4 cycles
-    mva hi,x AUDC3+$10 ; 8 cycles
     mva lo,x AUDC1+$10 ; 8 cycles
+    mva hi,x AUDC3+$10 ; 8 cycles
 >>>       if ($hpos) {
     stx HPOSP1 ; 4 cycles
 >>>       }

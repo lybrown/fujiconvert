@@ -122,16 +122,17 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate, onprogress) {
   } else {
     // No cycle, so compute 1K window offsets (overkill?) and interpolate
     let tablesize = 1024;
-    let coeffs = new Float32Array((tablesize + 1) * inwidth);
+    let inwidth1 = inwidth + 1;
+    let coeffs = new Float32Array((tablesize + 1) * (inwidth1));
     for (let ti = 0; ti <= tablesize; ++ti) {
       let ii = ti / tablesize;
       let wi = -halfinwidth - ii;
-      for (let ci = 0; ci < inwidth; ++ci, ++wi) {
+      for (let ci = 0; ci < inwidth1; ++ci, ++wi) {
         // calculate von Hann Window. Scale and calculate Sinc
         let r_w = 0.5 - 0.5 * Math.cos(2*Math.PI*(0.5 + wi/inwidth));
         let r_a = Math.PI*wi*r_g;
         let r_snc = r_a ? Math.sin(r_a)/r_a : 1;
-        coeffs[ti*inwidth + ci] = r_g * r_w * r_snc;
+        coeffs[ti*inwidth1 + ci] = r_g * r_w * r_snc;
       }
     }
     let section = outframecount / 50;
@@ -146,8 +147,8 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate, onprogress) {
       // Compute coefficient table offsets
       let ti0 = frac | 0;
       let ti1 = ti0 + 1;
-      let offset0 = ti0 * inwidth;
-      let offset1 = ti1 * inwidth;
+      let offset0 = ti0 * inwidth1;
+      let offset1 = ti1 * inwidth1;
       // Compute linear interpolation coeffs;
       let f0 = ti1 - frac;
       let f1 = frac - ti0;

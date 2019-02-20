@@ -158,7 +158,7 @@ function getSettings() {
       settings.player_name = get_player_name(settings);
       console.log(`player_name: ${settings.player_name}`);
       let labels = players[settings.player_name].labels;
-      if ((!labels.slow_cycles || labels.slow_cycles <= 5) &&
+      if ((!labels.slow_cycles || labels.slow_cycles <= 15) &&
           (!labels.fast_cycles || labels.fast_cycles <= 5)) {
         break;
       }
@@ -228,7 +228,7 @@ function readSingleFile(e) {
 }
 
 function clamp(num, min, max) {
-  return num <= min ? min : num >= max ? max : num;
+  return Math.min(Math.max(num, min), max);
 }
 
 function lerp(x, slo, shi, dlo, dhi) {
@@ -360,7 +360,6 @@ function decode(contents, settings) {
   let channelcount = settings.channels == "stereo" ? 2 : 1;
   let length = 1000;
   let samplerate = 48000;
-  console.log(`Creating OfflineAudioContext(${channelcount}, ${length}, ${samplerate})`);
   let context = new OfflineAudioContext(channelcount, length, samplerate);
   settings.context = context;
 
@@ -382,6 +381,7 @@ function decode(contents, settings) {
     console.log("cropbuf.length: " + cropbuf.length);
     bar("decodeBar", 0.2); // GUI: progress
     let mixbuf = mix(cropbuf, settings);
+    console.log("mixbuf.length: " + mixbuf.length);
     bar("decodeBar", 0.3); // GUI: progress
     resample(mixbuf, settings);
   };
@@ -634,7 +634,10 @@ function convertIDE(renderedBuffer, settings) {
   };
   bar("convertBar", 0); // GUI: 0% progress
   let max = 255;
-  let map_sample = settings.dither ? function(sample) {
+  let map_sample = settings.method == "pcm4+4" ? function (sample) {
+    let samp = (sample * (256-16) + 256-16) >> 1;
+    return clamp(samp + 1 + (samp / 15 | 0), 0, 255);
+  } : settings.dither ? function(sample) {
     let dither = Math.random()-0.5;
     let samp = (sample * (max+1) + (max+1) + dither) >> 1;
     return clamp(samp, 0, max);
@@ -681,7 +684,6 @@ function convertIDE(renderedBuffer, settings) {
 function convertSegments(renderedBuffer, settings) {
   let player_name = settings.player_name = get_player_name(settings);
   console.log("player_name: " + player_name);
-  console.log("renderedBuffer.length: " + renderedBuffer.length);
   if (!players[player_name]) {
     text("convertMessage", "ERROR: Unsupported player: " + player_name);
   }
@@ -795,8 +797,6 @@ function convertSegments(renderedBuffer, settings) {
         bin = bin.slice(0, size); // XXX Should never trigger if limiter in loop() is working
       }
       let car = makecar(type, bin);
-      console.log("max: " + max + " size: " + size +
-        " type: " + type);
       settings.extension = ".car";
       zip_and_offer(car, settings);
     } else {
@@ -808,8 +808,10 @@ function convertSegments(renderedBuffer, settings) {
     settings.method == "pwm" ? Math.min(settings.period-5, 101) :
     settings.method == "pcm4" ? 15 :
     255;
-  console.log("max: " + max);
-  let map_sample = settings.dither ? function(sample) {
+  let map_sample = settings.method == "pcm4+4" ? function (sample) {
+    let samp = (sample * (256-16) + 256-16) >> 1;
+    return clamp(samp + 1 + (samp / 15 | 0), 0, 255);
+  } : settings.dither ? function(sample) {
     let dither = Math.random()-0.5;
     let samp = (sample * (max+1) + (max+1) + dither) >> 1;
     return clamp(samp, 0, max);
@@ -825,8 +827,6 @@ function convertSegments(renderedBuffer, settings) {
     (stereo ? maxbytes >> 1 : maxbytes) *
     (settings.method == "pcm4" ? 2 : 1),
     data.length);
-  console.log("maxbytes: " + maxbytes + " maxframes: " + maxframes +
-    " data.length: " + data.length);
   let i = 0; // source index
   let loop = function() {
     let k; // page offset
