@@ -672,6 +672,25 @@ function convert(renderedBuffer, settings) {
     convertSegments(renderedBuffer, settings);
   }
 }
+function get_map_sample(max, settings) {
+  return settings.method == "pcm4+4" ?
+    settings.dither ? function (sample) {
+      let dither = Math.random()-0.5;
+      let samp = (sample * (256-16) + 256-16 + dither) >> 1;
+      return clamp(samp + 1 + (samp / 15 | 0), 0, 255);
+    } : function (sample) {
+      let samp = (sample * (256-16) + 256-16) >> 1;
+      return clamp(samp + 1 + (samp / 15 | 0), 0, 255);
+    } : 
+    settings.dither ? function(sample) {
+      let dither = Math.random()-0.5;
+      let samp = (sample * (max+1) + (max+1) + dither) >> 1;
+      return clamp(samp, 0, max);
+    } : function(sample) {
+      let samp = (sample * (max+1) + (max+1)) >> 1;
+      return clamp(samp, 0, max);
+    };
+}
 function convertIDE(renderedBuffer, settings) {
   let method = [settings.method, settings.channels,
     (settings.freq | 0)+"Hz", settings.media, settings.region].join(" ");
@@ -682,22 +701,11 @@ function convertIDE(renderedBuffer, settings) {
   let len = stereo ? data.length * 2 : data.length;
   let file = new Uint8Array(len);
   let done = function() {
-    settings.extension = ".pdm";
-    zip_and_offer(file, settings);
+    zip_and_offer([file, ".pdm"], settings);
   };
   bar("convertBar", 0); // GUI: 0% progress
   let max = 255;
-  let map_sample = settings.method == "pcm4+4" ? function (sample) {
-    let samp = (sample * (256-16) + 256-16) >> 1;
-    return clamp(samp + 1 + (samp / 15 | 0), 0, 255);
-  } : settings.dither ? function(sample) {
-    let dither = Math.random()-0.5;
-    let samp = (sample * (max+1) + (max+1) + dither) >> 1;
-    return clamp(samp, 0, max);
-  } : function(sample) {
-    let samp = (sample * (max+1) + (max+1)) >> 1;
-    return clamp(samp, 0, max);
-  };
+  let map_sample = get_map_sample(max, settings);
   let maxbytes = settings.maxbytes;
   let maxframes = Math.min(
     (stereo ? maxbytes >> 1 : maxbytes) *
@@ -775,8 +783,7 @@ function convertSegments(renderedBuffer, settings) {
         ...pieces, // sound segments
         ini(labels.quiet) // quiet, shutdown
       );
-      settings.extension = ".xex";
-      zip_and_offer(xex, settings);
+      zip_and_offer([xex, ".xex"], settings);
     } else if (settings.media == "ram") {
       console.log("main: " + labels.main +
         " prepnextbank: " + labels.prepnextbank);
@@ -795,8 +802,7 @@ function convertSegments(renderedBuffer, settings) {
         header(labels.endhi+1, 1), [endbank >> 8],
         ...pieces, // sound segments
       );
-      settings.extension = ".xex";
-      zip_and_offer(xex, settings);
+      zip_and_offer([xex, ".xex"], settings);
     } else if (cart) {
       // patch splash screen
       console.log("scr: " + labels.scr +
@@ -815,6 +821,10 @@ function convertSegments(renderedBuffer, settings) {
       let type = getCarType(settings.media, max);
       let fullsize = cartSize(type);
       let size = player0 ? datalen : fullsize;
+      if (settings.media == "thecart" && (size & 0x1FFF)) {
+        // Round up to next 8K boundary
+        size = ((size >> 13) + 1) << 13;
+      }
       let mediaoffset = player0 ? buflen : 0;
       let mediaend = player0 ? size : size - buflen;
       let player_offset = player0 ? 0 : size - buflen;
@@ -850,8 +860,7 @@ function convertSegments(renderedBuffer, settings) {
         bin = bin.slice(0, size); // XXX Should never trigger if limiter in loop() is working
       }
       let car = makecar(type, bin);
-      settings.extension = ".car";
-      zip_and_offer(car, settings);
+      zip_and_offer([car, ".car", bin, ".raw"], settings);
     } else {
       text("convertMessage", "ERROR: Unsupported media: " + settings.media);
     }
@@ -860,18 +869,9 @@ function convertSegments(renderedBuffer, settings) {
   let max =
     settings.method == "pwm" ? Math.min(settings.period-5, 101) :
     settings.method == "pcm4" ? 15 :
+    settings.method == "pcm4+4" ? 239 :
     255;
-  let map_sample = settings.method == "pcm4+4" ? function (sample) {
-    let samp = (sample * (256-16) + 256-16) >> 1;
-    return clamp(samp + 1 + (samp / 15 | 0), 0, 255);
-  } : settings.dither ? function(sample) {
-    let dither = Math.random()-0.5;
-    let samp = (sample * (max+1) + (max+1) + dither) >> 1;
-    return clamp(samp, 0, max);
-  } : function(sample) {
-    let samp = (sample * (max+1) + (max+1)) >> 1;
-    return clamp(samp, 0, max);
-  };
+  let map_sample = get_map_sample(max, settings);
   let maxbytes = Math.min(
     cart ? carMax(settings.media) : 1e999,
     settings.media == "ram" ? 1 << 20 :
@@ -928,14 +928,19 @@ function convertSegments(renderedBuffer, settings) {
   loop();
 }
 
-function zip_and_offer(file, settings) {
+function get_filename(ext, settings) {
   let base = settings.filename.replace(/\.[^\/.]+$/, "");
   let method = settings.methodStr;
-  let filename = base + " " + method + settings.extension;
-  let zipname = base + " " + method + ".zip";
-  global.wavename = base + " " + method + ".wav";
+  return base + " " + method + ext;
+}
+
+function zip_and_offer(files, settings) {
+  global.wavename = get_filename(".wav", settings);
+  let zipname = get_filename(".zip", settings);
   let zip = new JSZip();
-  zip.file(filename, file);
+  for (let i = 0; i < files.length; i += 2) {
+    zip.file(get_filename(files[i+1], settings), files[i]);
+  }
   busy("zipBusy", 1);
   zip.generateAsync({type: "blob", compression: "DEFLATE"},
     function updateCallback(metadata) {

@@ -37,4 +37,22 @@ First release
 0.2.4
 -----
 
-* Fix issues found by Microsoft Edge
+* Fixed issues found by Microsoft Edge
+
+0.2.5
+-----
+
+* [PCM4+4] Improved sound quality by restricting low nybble to values 1-15
+* [PWM] Fixed pops by minimizing sample rate jitter
+* [resampling] Improved resampling performance by precomputing coefficients
+* [resampling] Moved resampling to WebWorker threads. Stereo channels are now
+  resampled in parallel threads
+* [resampling] Bumped up quality of resampling effort choices, e.g. Ultra now
+  uses 2048 sample window instead of 1024
+* [resampling] Added WAV file parser to bypass WebAudio's low-quality
+  resampling
+* [resampling] Skip resampling if WAV sample rate exactly equals Constrained
+  Setting "freq"
+* [The!Cart] Disable The!Cart when OPTION is pressed during power up
+* [The!Cart] Leave IRQs and NMIs enabled in splash screen
+  http://atariage.com/forums/topic/279232-fujiconvert-01/page-7#entry4081580

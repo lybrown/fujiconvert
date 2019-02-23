@@ -51,16 +51,16 @@ hi
 
 splash
     jsr reset
-    ; disable interrupts, ANTIC, POKEY
+    ; set up graphics
     sei
     mva #0 NMIEN
-    sta DMACTL
-    sta AUDCTL
-    mwa #dlist DLISTL
-    mva #0 COLPF2
-    mva #15 COLPF1
     lda:rne VCOUNT
-    mva #$22 DMACTL
+    mwa #dlist $230
+    mva #0 $2C6 ; COLOR2
+    mva #15 $2C5 ; COLOR1
+    mva #$22 559 ; SDMCTL
+    mva #$40 NMIEN
+    cli
 
     lda SKSTAT
     sta lastkey
@@ -791,7 +791,21 @@ copy
     bne copy
 
     jmp main
-null
+initcart
+>>> if ($thecart) {
+    lda CONSOL ; Is OPTION pressed?
+    and #4
+    bne initdone
+    ldx #16
+    mva:rpl disable,x $2000,x-
+    jmp $2000
+disable
+    mva #0 $D5A6 ; Disable The!Cart
+    sta $D5A2
+    sta $D5A5
+    jsr $E477 ; COLDSV
+>>> }
+initdone
     rts
 
     ;========================================================
@@ -799,5 +813,5 @@ null
     dta a(cartstart+<<<$xegs ? '$2000' : 0>>>) ; start
     dta 0 ; no left cart  XXX should be 1 for 16K carts?
     dta 4 ; no DOS
-    dta a(null+<<<$xegs ? '$2000' : 0>>>) ; init
+    dta a(initcart+<<<$xegs ? '$2000' : 0>>>) ; init
 >>> } else { die; }
