@@ -265,8 +265,8 @@ function getCartCapacity(settings) {
 function getMediaCapacity(settings) {
   switch (settings.media) {
     case "ram": return getRamCapacity(settings);
-    case "emulator": return 1<<32;
-    case "ide": return 1<<32;
+    case "emulator": return (1<<30);
+    case "ide": return (1<<30);
     default: return getCartCapacity(settings);
   }
 }
@@ -295,6 +295,7 @@ function durationToFrames(settings, duration) {
 }
 function getUserLimit(settings) {
   let maxbytes = settings.maxbytes;
+  if (settings.media == "ide") return maxbytes;
   let labels = players[settings.player_name].labels;
   if (labels.pages) {
     return maxbytes - 0x100 * labels.pages;
@@ -313,10 +314,12 @@ function getFrameCount(settings, buffer) {
 
   let mediacapacity = getMediaCapacity(settings);
   let mediaframecount = inrate / outrate * bytesToFrames(settings, mediacapacity) | 0;
+  console.log("mediacapacity: " + mediacapacity);
   console.log("mediaframecount: " + mediaframecount);
 
   let usercapacity = getUserLimit(settings);
   let userframecount = inrate / outrate * bytesToFrames(settings, usercapacity) | 0;
+  console.log("usercapacity: " + usercapacity);
   console.log("userframecount: " + userframecount);
 
   let songframecount = buffer ? buffer.length : 1 << 32;
