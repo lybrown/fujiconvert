@@ -1,37 +1,20 @@
 // vim: ts=2:sts=2:sw=2:et
-// Based on Ron Nicholson's QDSS Windowed-Sinc ReSampling subroutine in Basic
-// http://www.nicholson.com/rhn/dsp.html#3
-
 "use strict";
 
-function resample_buf(inbuf, inwidth, outrate, context) {
-  let channelcount = inbuf.numberOfChannels;
+importScripts("./progress.js");
+
+// Exchange messages with main thread
+this.onmessage = function (msg) {
+  let d = msg.data;
+  let progress = new Progress(d.progress.ticks, function(newticks) {
+    postMessage({"newticks": newticks});
+  });
+  let inbuf = new Float32Array(d.inbuf);
   let inframecount = inbuf.length;
-  let inrate = inbuf.sampleRate;
-  let outframecount = inframecount * outrate / inrate | 0;
-  let outbuf = context.createBuffer(channelcount, outframecount, outrate);
-  for (let i = 0; i < channelcount; ++i) {
-    let inch = inbuf.getChannelData(i);
-    let outch = outbuf.getChannelData(i);
-    resample_mono(inch, inrate, inwidth, outch, outrate, () => 0);
-  }
-  return outbuf;
-}
-
-async function resample_raw(inbufs, inwidth, inrate, outbufs, outrate) {
-  let worker = new Worker("resample.js");
-  for (let i = 0; i < inbufs.length; ++i) {
-    let msg = {inrate:inrate, inwidth:inwidth, outrate:outrate};
-    worker.postMessage(msg, [inbuf[i], outbuf[i]]);
-  }
-  return outbufs;
-}
-
-this.onmessage = function (m, t) {
-  let d = m.data;
-  let [inbuf, outbuf] = t;
-  resample_mono(inbuf, d.inrate, d.inwidth, outbuf, d.outrate);
-  postMessage("result", t);
+  let outframecount = inframecount * d.outrate / d.inrate | 0;
+  let outbuf = new Float32Array(outframecount);
+  resample_mono(inbuf, d.inrate, d.inwidth, outbuf, d.outrate, progress);
+  postMessage({"result": 1, outbuf: outbuf.buffer}, [outbuf.buffer]);
 }
 
 function find_cycle(inrate, outrate) {
@@ -43,7 +26,9 @@ function find_cycle(inrate, outrate) {
   return 0;
 }
 
-function resample_mono(inbuf, inrate, inwidth, outbuf, outrate, onprogress) {
+// Based on Ron Nicholson's QDSS Windowed-Sinc ReSampling subroutine in Basic
+// http://www.nicholson.com/rhn/dsp.html#3
+function resample_mono(inbuf, inrate, inwidth, outbuf, outrate, progress) {
   let fmax = Math.min(inrate, outrate) * 0.45; // Cutoff frequency
   let r_g = 2 * fmax / inrate; // Gain Correction factor
   let halfinwidth = inwidth >> 1; // Half of convolution window width
@@ -62,9 +47,11 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate, onprogress) {
   if (inwidth < 2) {
     console.log("Using nearest neighbor since inwidth=" + inwidth);
     for (let oi = 0; oi < outframecount; ++oi) {
-      let ii = oi * inrate / outrate | 0;
+      //let ii = oi * inrate / outrate | 0;
+      let ii = Math.round(oi * inrate / outrate);
       outbuf[oi] = inbuf[ii];
     }
+    progress.done();
     return;
   }
   // ii = inbuf index
@@ -76,7 +63,9 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate, onprogress) {
   if (cycle) {
     // If there is a cycle, then we can compute an exact coefficient table
     let coeffs = new Float32Array(cycle * inwidth);
+    progress.init(cycle + outframecount);
     for (let ti = 0; ti < cycle; ++ti) {
+      progress.report(ti);
       let ii = ti * inrate / outrate;
       let wi = -halfinwidth - ti * inrate % outrate / outrate;
       for (let ci = 0; ci < inwidth; ++ci, ++wi) {
@@ -90,10 +79,7 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate, onprogress) {
     let section = outframecount / 50;
     let numerator = 0;
     for (let oi = 0; oi < outframecount; ++oi, numerator += inrate) {
-      if (oi > section) {
-        onprogress(oi / outframecount);
-        section += outframecount / 50;
-      }
+      progress.report(cycle + oi);
       let ii = numerator / outrate;
       // Compute factor table offset
       let ti = oi % cycle;
@@ -124,7 +110,9 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate, onprogress) {
     let tablesize = 1024;
     let inwidth1 = inwidth + 1;
     let coeffs = new Float32Array((tablesize + 1) * (inwidth1));
+    progress.init(tablesize + outframecount);
     for (let ti = 0; ti <= tablesize; ++ti) {
+      progress.report(ti);
       let ii = ti / tablesize;
       let wi = -halfinwidth - ii;
       for (let ci = 0; ci < inwidth1; ++ci, ++wi) {
@@ -138,10 +126,7 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate, onprogress) {
     let section = outframecount / 50;
     let numerator = 0;
     for (let oi = 0; oi < outframecount; ++oi, numerator += inrate) {
-      if (oi > section) {
-        onprogress(oi / outframecount);
-        section += outframecount / 50;
-      }
+      progress.report(tablesize + oi);
       let ii = numerator / outrate;
       let frac = numerator % outrate / outrate * tablesize;
       // Compute coefficient table offsets
@@ -162,4 +147,5 @@ function resample_mono(inbuf, inrate, inwidth, outbuf, outrate, onprogress) {
       outbuf[oi] = r_y;
     }
   }
+  progress.done();
 }

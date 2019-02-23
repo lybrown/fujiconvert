@@ -199,7 +199,7 @@ function resetIndicators() {
   download.href = "";
   document.getElementById("controls").style.visibility = "hidden";
 }
-function readSingleFile(e) {
+async function readSingleFile(e) {
   let fileinput = document.getElementById("file-input");
   let file = fileinput.files[0];
   if (!file) {
@@ -353,7 +353,15 @@ function get_window_width(settings) {
     default: return 1;
   }
 }
-function decode(contents, settings) {
+async function delay(msec) {
+  await new Promise((resolve, reject) => setTimeout(msec, resolve));
+}
+async function decode(contents, settings) {
+  let ticks = 0;
+  let progress = new Progress(80, function(newticks) {
+    ticks += newticks;
+    bar("decodeBar", ticks / 80);
+  });
   bar("decodeBar", 0.02);
 
   // Create OfflineAudioContext
@@ -364,6 +372,8 @@ function decode(contents, settings) {
   settings.context = context;
 
   let done = function(buffer) {
+    progress.sub(0.1).done();
+    delay(0);
     global.outrate = settings.freq;
 
     let duration = buffer.duration - settings.offset;
@@ -376,14 +386,15 @@ function decode(contents, settings) {
     let framecount = settings.framecount = getFrameCount(settings, buffer);
     let frameoffset = settings.offset * buffer.sampleRate;
     console.log("framecount: " + framecount + " frameoffset: " + frameoffset);
-    bar("decodeBar", 0.1); // GUI: progress
     let cropbuf = cropBuffer(context, buffer, frameoffset, framecount);
     console.log("cropbuf.length: " + cropbuf.length);
-    bar("decodeBar", 0.2); // GUI: progress
+    progress.sub(0.1).done();
+    delay(0);
     let mixbuf = mix(cropbuf, settings);
     console.log("mixbuf.length: " + mixbuf.length);
-    bar("decodeBar", 0.3); // GUI: progress
-    resample(mixbuf, settings);
+    progress.sub(0.1).done();
+    delay(0);
+    resample(mixbuf, settings, progress.sub(0.7));
   };
 
   try {
@@ -431,7 +442,46 @@ function mix(inbuf, settings) {
   }
   return outbuf;
 }
-function resample(inbuf, settings) {
+
+async function resample_buf(inbuf, inwidth, outrate, context, progress) {
+  let channelcount = inbuf.numberOfChannels;
+  let inframecount = inbuf.length;
+  let inrate = inbuf.sampleRate;
+  let outframecount = inframecount * outrate / inrate | 0;
+  let outbuf = context.createBuffer(channelcount, outframecount, outrate);
+  let ch = [{}, {}];
+  for (let i = 0; i < channelcount; ++i) {
+    let subprogress = progress.sub(i, 2);
+    ch[i].promise = new Promise(function(resolve, reject) {
+      ch[i].resolve = resolve;
+      ch[i].reject = reject;
+    });
+    ch[i].worker = new Worker("resample.js");
+    ch[i].worker.onmessage = function(msg) {
+      let d = msg.data;
+      if (d.newticks != undefined) {
+        subprogress.ontick(d.newticks);
+      } else if (d.result) {
+        outbuf.copyToChannel(new Float32Array(d.outbuf), i);
+        ch[i].resolve();
+      }
+    };
+    ch[i].worker.onerrormessage = function(msg) {
+      ch[i].reject();
+    }
+    let msg = {
+      inrate,
+      inwidth,
+      outrate,
+      progress: {ticks: progress.sub(1/channelcount).ticks},
+      inbuf: inbuf.getChannelData(i).buffer.slice(0),
+    };
+    ch[i].worker.postMessage(msg, [msg.inbuf]);
+  }
+  await Promise.all(ch.map(x => x.promise));
+  return outbuf;
+}
+async function resample(inbuf, settings, progress) {
   let inrate = inbuf.sampleRate;
   let outrate = global.outrate = settings.freq;
   // Skip resample if input and output sample rates are the same
@@ -440,7 +490,7 @@ function resample(inbuf, settings) {
     convert(inbuf, settings);
   } else {
     let width = get_window_width(settings);
-    let outbuf = resample_buf(inbuf, width, outrate, settings.context);
+    let outbuf = await resample_buf(inbuf, width, outrate, settings.context, progress);
     bar("decodeBar", 1); // GUI: 100% progress
     convert(outbuf, settings);
   }
