@@ -70,7 +70,7 @@ function wavToBuffer(wav, context) {
     let x = wav.dataOffset + c*wav.bitsPerSample/8;
     if (wav.bitsPerSample == 8) {
       for (let i = 0; i < framecount; ++i, x += wav.blockAlign) {
-        ch[i] = view.getUint8(x) / 128 - 1;
+        ch[i] = view.getUint8(x) / 128 - 255/256;
       }
     } else if (wav.bitsPerSample == 16) {
       for (let i = 0; i < framecount; ++i, x += wav.blockAlign) {

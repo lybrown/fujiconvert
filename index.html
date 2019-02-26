@@ -4,22 +4,55 @@
 <style>
 .page {
     display: grid;
-    grid-template-columns: 2fr 7fr;
+    width: 1000px;
+    grid-template-columns: 400px auto;
     grid-template-rows: auto auto 10px auto;
+    grid-template-areas:
+        "header header"
+        "settings right"
+        "------ ------"
+        "footer footer"
+}
+@media screen and (max-width: 1000px) {
+    .page {
+        display: grid;
+        width: 100%;
+        grid-template-columns: auto;
+        grid-template-rows: auto auto auto 10px auto;
+        grid-template-areas:
+            "header"
+            "settings"
+            "right"
+            "------"
+            "footer"
+    }
 }
 .header {
-    grid-row: 1;
+    grid-area: header;
 }
-.left {
-    grid-column: 1;
-    grid-row: 2;
+.settings {
+    grid-area: settings;
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-rows: min-content auto;
+    grid-template-areas:
+        "settingsheader settingsheader"
+        "settingsright settingsleft";
+}
+.settingsheader {
+    grid-area: settingsheader;
+}
+.settingsleft {
+    grid-area: settingsleft;
+}
+.settingsright {
+    grid-area: settingsright;
 }
 .right {
-    grid-column: 2;
-    grid-row: 2;
+    grid-area: right;
 }
 .footer {
-    grid-row: 4;
+    grid-area: footer;
 }
 .divparent div {
     float: left; 
@@ -40,10 +73,9 @@
 <b><font size="5">FujiConvert</font></b>
 </div> <!-- header -->
 
-<div class="left">
-<h3>Settings</h3>
-<form action="" id="settings">
-<div>
+<form action="" id="settings" class="settings">
+<h3 class="settingsheader">Settings</h3>
+<div class="settingsleft">
 <div>
     Playback Method:<br>
     <input type="radio" name="method" value="pcm4+4" checked> PCM4+4<br>
@@ -81,6 +113,9 @@
     <input type="radio" name="frequency" value="15kHz"> 15kHz<br>
     <input type="radio" name="frequency" value="8kHz"> 8kHz<br>
 </div>
+</div> <!-- settingsleft -->
+<div class="settingsright">
+<div>
     Resampling Effort:
     <select name="resampling_effort">
     <option value="ultra">Ultra</option>
@@ -91,21 +126,11 @@
     </select><br>
     Dither: <input type="checkbox" name="dither"><br>
     Gain: <input type="text" name="gain" value="1"><br>
+    CPU Speed: <input type="text" name="speed" value="1"><br>
     Offset: <input type="text" name="offset" value="0"><br>
     Duration: <input type="text" name="duration" value="-1"><br>
     Title: <input type="text" name="title" value=""><br>
     Artist: <input type="text" name="artist" value=""><br>
-<div>
-    Output Media:<br>
-    <input type="radio" name="media" value="ram"> RAM XEX<br>
-    <input type="radio" name="media" value="emulator"> Emulator Stream XEX<br>
-    <input type="radio" name="media" value="ide"> IDE player (flashjazzcat)<br>
-    <input type="radio" name="media" value="thecart" checked> The!Cart<br>
-    <input type="radio" name="media" value="atarimax"> Atarimax<br>
-    <input type="radio" name="media" value="megamax"> MegaMax<br>
-    <input type="radio" name="media" value="megacart"> MegaCart<br>
-    <input type="radio" name="media" value="xegs"> XEGS<br>
-    <input type="radio" name="media" value="sic"> SIC!<br>
 </div>
 <div>
     Max size:
@@ -123,10 +148,24 @@
     <option value="unlimited"> Unlimited</option>
     </select>
 </div>
+<div>
+    Output Media:<br>
+    <input type="radio" name="media" value="ram"> RAM XEX<br>
+    <input type="radio" name="media" value="emulator"> Emulator Stream XEX<br>
+    <input type="radio" name="media" value="ide"> IDE player (flashjazzcat)<br>
+    <input type="radio" name="media" value="thecart" checked> The!Cart<br>
+    <input type="radio" name="media" value="atarimax"> Atarimax<br>
+    <input type="radio" name="media" value="megamax"> MegaMax<br>
+    <input type="radio" name="media" value="megacart"> MegaCart<br>
+    <input type="radio" name="media" value="xegs"> XEGS<br>
+    <input type="radio" name="media" value="sic"> SIC!<br>
+    Cart Type:<br>
+    <input type="checkbox" name="car" checked>.car<br>
+    <input type="checkbox" name="raw">.raw<br>
 </div>
-</form>
 
-</div> <!-- left -->
+</div> <!-- settingsright -->
+</form> <!-- settings -->
 
 <div class="right">
 <h3>Select Input Media</h3>
@@ -138,15 +177,15 @@
 
 <pre id="settingsText"></pre>
 
-<h3>Read</h3>
+<h3>Read and Decode</h3>
 
 <pre id="readBar"></pre>
 <pre id="readMessage"></pre>
 
-<h3>Decode and Resample</h3>
+<h3>Mix and Resample</h3>
 
-<pre id="decodeBar"></pre>
-<pre id="decodeMessage"></pre>
+<pre id="resampleBar"></pre>
+<pre id="resampleMessage"></pre>
 
 <h3>Convert</h3>
 

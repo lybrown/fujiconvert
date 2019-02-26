@@ -26,14 +26,14 @@ function Progress(ticks, ontick) {
   this.ticks = ticks;
   this.sent = 0;
   this.ontick = ontick;
-  this.alloted = 0;
+  this.allotted = 0;
   this.sub = function(frac) {
-    let curr = this.alloted * this.ticks | 0;
-    this.alloted += frac;
-    if (this.alloted > 0.999) {
-      this.alloted = 1;
+    let curr = this.allotted * this.ticks | 0;
+    this.allotted += frac;
+    if (this.allotted > 0.999) {
+      this.allotted = 1;
     }
-    let next = this.alloted * this.ticks | 0;
+    let next = this.allotted * this.ticks | 0;
     let subticks = next - curr;
     return new Progress(subticks, this.ontick);
   };

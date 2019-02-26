@@ -49,6 +49,14 @@ function bar(name, fraction) {
   let percent = clamp(fraction * width | 0, 0, width);
   msg.innerHTML = "#".repeat(percent) + "-".repeat(width-percent);
 }
+function progressbar(name) {
+  let ticks = 0;
+  let progress = new Progress(80, function(newticks) {
+    ticks += newticks;
+    bar(name, ticks / 80);
+  });
+  return progress;
+}
 function busy(name, state) {
   let msg = document.getElementById(name);
   msg.innerHTML = state == 1 ? "Busy" : state == 2 ? "Done" : "----";
@@ -63,7 +71,8 @@ function formElements() {
     "media",
     "maxsize",
     "dither",
-    "gain", "offset", "duration", "title", "artist",
+    "car", "raw",
+    "gain", "speed", "offset", "duration", "title", "artist",
   ];
 }
 function readLocalStorage() {
@@ -77,6 +86,9 @@ function readLocalStorage() {
   }
   if (!form.gain.value) {
     form.gain.value = 1;
+  }
+  if (!form.speed.value) {
+    form.speed.value = 1;
   }
   if (!form.offset.value) {
     form.offset.value = 0;
@@ -184,20 +196,51 @@ function getSettings() {
   // Derived settings
   settings.maxbytes = maxbytes[settings.maxsize] || (4<<20);
 
+  // Use .car if neither .car or .raw are selected
+  if (!settings.car && !settings.raw) {
+    settings.car = true;
+  }
+
   return settings;
 }
 function resetIndicators() {
   bar("readBar", 0);
-  bar("decodeBar", 0);
+  bar("resampleBar", 0);
   bar("convertBar", 0);
   busy("zipBusy", 0);
-  text("decodeMessage", "");
-  text("convertMessage", "");
   text("readMessage", "");
+  text("resampleMessage", "");
+  text("convertMessage", "");
   let download = document.getElementById("download");
   download.innerText = "";
   download.href = "";
   document.getElementById("controls").style.visibility = "hidden";
+  //document.getElementById("convert").style.visibility = "hidden";
+}
+function fakeAudio(...args) {
+  if (typeof args[0] == "object") {
+    this.numberOfChannels = args[0].numberOfChannels;
+    this.length = args[0].length;
+    this.sampleRate = args[0].sampleRate;
+    this.duration = args[0].duration;
+    this.chan = [];
+    for (let i = 0; i < this.numberOfChannels; ++i) {
+      this.chan[i] = args[0].getChannelData(i);
+    }
+  } else {
+    this.numberOfChannels = args[0];
+    this.length = args[1];
+    this.sampleRate = args[2];
+    this.duration = this.length / this.sampleRate;
+    this.chan = [];
+    for (let i = 0; i < this.numberOfChannels; ++i) {
+      this.chan[i] = new Float32Array(this.length);
+    }
+  }
+  this.getChannelData = i => this.chan[i];
+  this.copyToChannel = function(ch, i) {
+    this.chan[i] = ch;
+  };
 }
 async function readSingleFile(e) {
   let fileinput = document.getElementById("file-input");
@@ -211,15 +254,20 @@ async function readSingleFile(e) {
 
   resetIndicators();
 
+  let progress = progressbar("readBar");
+  let readprogress = progress.sub(0.3);
+  let decodeprogress = progress.sub(0.7);
+  readprogress.init(100);
+
   // Read as binary
   let binreader = new FileReader();
   binreader.onload = function(e) {
-    bar("readBar", 1);
+    readprogress.done();
     let contents = e.target.result;
-    decode(contents, settings);
+    decode(contents, settings, decodeprogress);
   };
   binreader.onprogress = function(event) {
-    bar("readBar", event.loaded / event.total);
+    readprogress.report(100 * event.loaded / event.total);
   };
   binreader.onerror = function(e) {
     text("readMessage", "ReadError");
@@ -339,7 +387,7 @@ function getFrameCount(settings, buffer) {
 }
 function cropBuffer(context, inbuf, frameoffset, framecount) {
   let chancount = inbuf.numberOfChannels;
-  let outbuf = context.createBuffer(chancount, framecount, inbuf.sampleRate);
+  let outbuf = new fakeAudio(chancount, framecount, inbuf.sampleRate);
   for (let i = 0; i < chancount; ++i) {
     let inchan = inbuf.getChannelData(i);
     let outchan = outbuf.getChannelData(i);
@@ -359,13 +407,7 @@ function get_window_width(settings) {
 async function delay(msec) {
   await new Promise((resolve, reject) => setTimeout(msec, resolve));
 }
-async function decode(contents, settings) {
-  let ticks = 0;
-  let progress = new Progress(80, function(newticks) {
-    ticks += newticks;
-    bar("decodeBar", ticks / 80);
-  });
-  bar("decodeBar", 0.02);
+async function decode(contents, settings, progress) {
 
   // Create OfflineAudioContext
   let channelcount = settings.channels == "stereo" ? 2 : 1;
@@ -375,30 +417,9 @@ async function decode(contents, settings) {
   settings.context = context;
 
   let done = function(buffer) {
-    progress.sub(0.1).done();
-    delay(0);
-    global.outrate = settings.freq;
-
-    let duration = buffer.duration - settings.offset;
-    if (duration < 0) {
-      text("decodeMessage", "Offset (" + settings.offset +
-        ") is larger than sound duration (" + buffer.duration + ")");
-      return;
-    }
-
-    let framecount = settings.framecount = getFrameCount(settings, buffer);
-    let frameoffset = settings.offset * buffer.sampleRate;
-    console.log("framecount: " + framecount + " frameoffset: " + frameoffset);
-    let cropbuf = cropBuffer(context, buffer, frameoffset, framecount);
-    console.log("cropbuf.length: " + cropbuf.length);
-    progress.sub(0.1).done();
-    delay(0);
-    let mixbuf = mix(cropbuf, settings);
-    console.log("mixbuf.length: " + mixbuf.length);
-    progress.sub(0.1).done();
-    delay(0);
-    resample(mixbuf, settings, progress.sub(0.7));
-  };
+    progress.done();
+    mix_and_resample(buffer, context, settings);
+  }
 
   try {
     let wav = readwav(contents);
@@ -410,17 +431,47 @@ async function decode(contents, settings) {
     console.log("Not a simple WAVE file: " + e);
     console.log("Trying WebAudio decode");
     context.decodeAudioData(contents, done, function(e) {
-      text("decodeMessage", "Decode Error: " + e);
+      text("readMessage", "Decode Error: " + e);
     });
   }
 }
+async function mix_and_resample(buffer, context, settings) {
+  let progress = progressbar("resampleBar");
+  global.outrate = settings.freq;
+
+  let duration = buffer.duration - settings.offset;
+  if (duration < 0) {
+    text("readMessage", "Offset (" + settings.offset +
+      ") is larger than sound duration (" + buffer.duration + ")");
+    return;
+  }
+
+  if (settings.speed != 1) {
+    buffer = new fakeAudio(buffer);
+    buffer.sampleRate /= settings.speed;
+  }
+
+  let framecount = settings.framecount = getFrameCount(settings, buffer);
+  let frameoffset = settings.offset * buffer.sampleRate;
+  console.log("framecount: " + framecount + " frameoffset: " + frameoffset);
+  let cropbuf = cropBuffer(context, buffer, frameoffset, framecount);
+  console.log("cropbuf.length: " + cropbuf.length);
+  progress.sub(0.1).done();
+  delay(0);
+  let mixbuf = mix(cropbuf, settings);
+  console.log("mixbuf.length: " + mixbuf.length);
+  progress.sub(0.1).done();
+  delay(0);
+  resample(mixbuf, settings, progress.sub(0.8));
+};
+
 function mix(inbuf, settings) {
   // Mix
   let outchannels = settings.channels == "stereo" ? 2 : 1;
   let inchannels = inbuf.numberOfChannels;
   let inframecount = inbuf.length;
   let inrate = inbuf.sampleRate;
-  let outbuf = settings.context.createBuffer(outchannels, inframecount, inrate);
+  let outbuf = new fakeAudio(outchannels, inframecount, inrate);
   let gain = settings.gain;
   let inchs = [];
   for (let i = 0; i < inchannels; ++i) {
@@ -454,7 +505,7 @@ async function resample_buf(inbuf, inwidth, outrate, context, progress) {
   let outbuf = context.createBuffer(channelcount, outframecount, outrate);
   let ch = [{}, {}];
   for (let i = 0; i < channelcount; ++i) {
-    let subprogress = progress.sub(i, 2);
+    let subprogress = progress.sub(1/channelcount);
     ch[i].promise = new Promise(function(resolve, reject) {
       ch[i].resolve = resolve;
       ch[i].reject = reject;
@@ -476,7 +527,7 @@ async function resample_buf(inbuf, inwidth, outrate, context, progress) {
       inrate,
       inwidth,
       outrate,
-      progress: {ticks: progress.sub(1/channelcount).ticks},
+      progress: {ticks: subprogress.ticks},
       inbuf: inbuf.getChannelData(i).buffer.slice(0),
     };
     ch[i].worker.postMessage(msg, [msg.inbuf]);
@@ -489,12 +540,12 @@ async function resample(inbuf, settings, progress) {
   let outrate = global.outrate = settings.freq;
   // Skip resample if input and output sample rates are the same
   if (inrate == outrate) {
-    bar("decodeBar", 1); // GUI: 100% progress
+    progress.done();
     convert(inbuf, settings);
   } else {
     let width = get_window_width(settings);
     let outbuf = await resample_buf(inbuf, width, outrate, settings.context, progress);
-    bar("decodeBar", 1); // GUI: 100% progress
+    progress.done();
     convert(outbuf, settings);
   }
 }
@@ -613,7 +664,7 @@ function cartSize(type) {
     30: 256 << 10,
     31: 512 << 10,
     32: 1 << 20,
-    41: 127 << 10,
+    41: 128 << 10,
     42: 1 << 20,
     54: 128 << 10,
     55: 256 << 10, 
@@ -854,13 +905,21 @@ function convertSegments(renderedBuffer, settings) {
         mediaoffset,
         mediaend,
         player_offset,
+        player0,
       });
       if (!player0 && bin.length > size) {
         text("convertMessage", "ERROR: Internal error: bad size");
         bin = bin.slice(0, size); // XXX Should never trigger if limiter in loop() is working
       }
-      let car = makecar(type, bin);
-      zip_and_offer([car, ".car", bin, ".raw"], settings);
+      let files = [];
+      if (settings.car) {
+        let car = makecar(type, bin);
+        files.push(car, ".car");
+      }
+      if (settings.raw) {
+        files.push(bin, ".raw");
+      }
+      zip_and_offer(files, settings);
     } else {
       text("convertMessage", "ERROR: Unsupported media: " + settings.media);
     }
