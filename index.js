@@ -891,7 +891,7 @@ function convertSegments(renderedBuffer, settings) {
         }
       }
       // patch end bank
-      let endbank = parts.length + (player0 ? 1 : 0);
+      let endbank = parts.length + (player0 ? 1 : 0) - 1;
       player_u8[labels.endlo+1 - labels.relocated_start] = endbank & 0xFF;
       player_u8[labels.endhi+1 - labels.relocated_start] = endbank >> 8;
       bin.set(player_u8, player_offset);
