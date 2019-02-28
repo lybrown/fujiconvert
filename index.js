@@ -338,8 +338,8 @@ function framesToBytes(settings, framecount) {
 function framesToDuration(settings, framecount) {
   return framecount / settings.freq;
 }
-function durationToFrames(settings, duration) {
-  return duration * settings.freq;
+function durationToFrames(buffer, duration) {
+  return duration * buffer.sampleRate;
 }
 function getUserLimit(settings) {
   let maxbytes = settings.maxbytes;
@@ -376,7 +376,7 @@ function getFrameCount(settings, buffer) {
   let remainingduration = Math.max(buffer.duration - settings.offset, 0);
   let userduration = settings.duration > 0 ?
     Math.min(settings.duration, remainingduration) : 1000 * 60;
-  let userdurationframecount = durationToFrames(settings, userduration);
+  let userdurationframecount = durationToFrames(buffer, userduration);
   console.log("userdurationframecount: " + userdurationframecount);
 
   return Math.min(
@@ -693,7 +693,7 @@ function getCarType(media, length) {
     return length <= (2 << 20) ? 61 :
       0;
   } else if (media == "atarimax") {
-    return length <= (127 << 10) ? 41 :
+    return length <= (128 << 10) ? 41 :
       length <= (1 << 20) ? 42 :
       0;
   } else if (media == "megacart") {
@@ -870,6 +870,11 @@ function convertSegments(renderedBuffer, settings) {
       let datalen = (parts.length + 1) * buflen;
       let max = Math.min(carMax(settings.media), settings.maxbytes, datalen);
       let type = getCarType(settings.media, max);
+      if (type == 41) { // 128K Atarimax
+        player0 = 1;
+        // Patch init bank
+        player_u8[labels.initbank + 1 - labels.relocated_start] = 1;
+      }
       let fullsize = cartSize(type);
       let size = player0 ? datalen : fullsize;
       if (settings.media == "thecart" && (size & 0x1FFF)) {
@@ -891,7 +896,7 @@ function convertSegments(renderedBuffer, settings) {
         }
       }
       // patch end bank
-      let endbank = parts.length + (player0 ? 1 : 0) - 1;
+      let endbank = Math.max(2, parts.length) + (player0 ? 1 : 0);
       player_u8[labels.endlo+1 - labels.relocated_start] = endbank & 0xFF;
       player_u8[labels.endhi+1 - labels.relocated_start] = endbank >> 8;
       bin.set(player_u8, player_offset);
@@ -997,9 +1002,12 @@ function zip_and_offer(files, settings) {
   global.wavename = get_filename(".wav", settings);
   let zipname = get_filename(".zip", settings);
   let zip = new JSZip();
+  let rawsize = 0;
   for (let i = 0; i < files.length; i += 2) {
     zip.file(get_filename(files[i+1], settings), files[i]);
+    rawsize += files[i].length;
   }
+  document.getElementById("rawsize").innerText = rawsize;
   busy("zipBusy", 1);
   zip.generateAsync({type: "blob", compression: "DEFLATE"},
     function updateCallback(metadata) {

@@ -221,6 +221,7 @@ main
     mva #0 NMIEN
     sta DMACTL
     sta AUDCTL
+    sta bank+1
 
     ; graphics
     mva #$F COLPM0 ; channel 1
@@ -540,7 +541,7 @@ nextbank2
 >>>   relaxednop($period - $cyclesnext);
     jmp play ; 3 cycles
 initbank
-    mwa #0 bank
+    mva #0 bank
     tay
     jmp nextbank
 >>> } elsif ($xegs or $megacart) {
@@ -555,7 +556,7 @@ nextbank
 >>>   relaxednop($period - $cyclesnext);
     jmp play ; 3 cycles
 initbank
-    mwa #<<<$xegs ? 0 : 1>>> bank
+    mva #<<<$xegs ? 0 : 1>>> bank
     ldy #0
     jmp nextbank
 >>> } elsif ($atarimax or $megamax) {
@@ -572,7 +573,7 @@ nextbank
 >>>   relaxednop($period - $cyclesnext);
     jmp play ; 3 cycles
 initbank
-    mwa #<<<$megamax ? 1 : 0>>> bank
+    mva #<<<$megamax ? 1 : 0>>> bank
     ldy #0
     jmp nextbank
 >>> } elsif ($sic) {
@@ -589,7 +590,7 @@ nextbank
 >>>   relaxednop($period - $cyclesnext);
     jmp play ; 3 cycles
 initbank
-    mwa #1 bank
+    mva #1 bank
     ldy #0
     jmp nextbank
 >>> } elsif ($thecart) {
