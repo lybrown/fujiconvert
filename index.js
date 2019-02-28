@@ -49,11 +49,15 @@ function bar(name, fraction) {
   let percent = clamp(fraction * width | 0, 0, width);
   msg.innerHTML = "#".repeat(percent) + "-".repeat(width-percent);
 }
+async function delay(msec) {
+  await new Promise((resolve, reject) => setTimeout(msec, resolve));
+}
 function progressbar(name) {
   let ticks = 0;
   let progress = new Progress(80, function(newticks) {
     ticks += newticks;
     bar(name, ticks / 80);
+    delay(0); // Yield to page renderer to allow repaint
   });
   return progress;
 }
@@ -404,9 +408,6 @@ function get_window_width(settings) {
     default: return 1;
   }
 }
-async function delay(msec) {
-  await new Promise((resolve, reject) => setTimeout(msec, resolve));
-}
 async function decode(contents, settings, progress) {
 
   // Create OfflineAudioContext
@@ -457,11 +458,9 @@ async function mix_and_resample(buffer, context, settings) {
   let cropbuf = cropBuffer(context, buffer, frameoffset, framecount);
   console.log("cropbuf.length: " + cropbuf.length);
   progress.sub(0.1).done();
-  delay(0);
   let mixbuf = mix(cropbuf, settings);
   console.log("mixbuf.length: " + mixbuf.length);
   progress.sub(0.1).done();
-  delay(0);
   resample(mixbuf, settings, progress.sub(0.8));
 };
 
@@ -755,7 +754,6 @@ function convertIDE(renderedBuffer, settings) {
   let done = function() {
     zip_and_offer([file, ".pdm"], settings);
   };
-  bar("convertBar", 0); // GUI: 0% progress
   let max = 255;
   let map_sample = get_map_sample(max, settings);
   let maxbytes = settings.maxbytes;
@@ -765,9 +763,11 @@ function convertIDE(renderedBuffer, settings) {
     data.length);
   console.log("maxbytes: " + maxbytes + " maxframes: " + maxframes +
     " data.length: " + data.length);
+  let progress = progressbar("convertBar");
+  progress.init(maxframes);
   let i = 0; // source index
   let j = 0; // destination sector index
-  let loop = function() {
+  while (i < maxframes) {
     let k; // sector offset1
     let l; // sector offset2
     let m; // destination index
@@ -784,15 +784,9 @@ function convertIDE(renderedBuffer, settings) {
       }
     }
     j += 0x200;
-    bar("convertBar", i/maxframes); // GUI: progress
-    if (i < maxframes) {
-      setTimeout(loop, 0);
-    } else {
-      bar("convertBar", 1); // GUI: 100% progress
-      setTimeout(done, 0);
-    }
-  };
-  loop();
+  }
+  progress.done();
+  done();
 }
 function convertSegments(renderedBuffer, settings) {
   let player_name = settings.player_name = get_player_name(settings);
@@ -930,7 +924,6 @@ function convertSegments(renderedBuffer, settings) {
       text("convertMessage", "ERROR: Unsupported media: " + settings.media);
     }
   };
-  bar("convertBar", 0); // GUI: 0% progress
   let max =
     settings.method == "pwm" ? Math.min(settings.period-5, 101) :
     settings.method == "pcm4" ? 15 :
@@ -945,8 +938,11 @@ function convertSegments(renderedBuffer, settings) {
     (stereo ? maxbytes >> 1 : maxbytes) *
     (settings.method == "pcm4" ? 2 : 1),
     data.length);
+  let progress = progressbar("convertBar");
+  progress.init(maxframes);
   let i = 0; // source index
-  let loop = function() {
+  while (i < maxframes) {
+    progress.report(i);
     let k; // page offset
     let l; // destination index
     let part = new Uint8Array(buflen);
@@ -982,15 +978,9 @@ function convertSegments(renderedBuffer, settings) {
       }
     }
     parts.push(part); // part done
-    bar("convertBar", i/maxframes); // GUI: progress
-    if (i < maxframes) {
-      setTimeout(loop, 0);
-    } else {
-      bar("convertBar", 1); // GUI: 100% progress
-      setTimeout(done, 0);
-    }
-  };
-  loop();
+  }
+  progress.done();
+  done();
 }
 
 function get_filename(ext, settings) {
