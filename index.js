@@ -533,6 +533,7 @@ async function resample_buf(inbuf, inwidth, outrate, context, progress) {
     ch[i].worker.postMessage(msg, [msg.inbuf]);
   }
   await Promise.all(ch.map(x => x.promise));
+  ch.forEach(v => v.worker && v.worker.terminate());
   return outbuf;
 }
 async function resample(inbuf, settings, progress) {
