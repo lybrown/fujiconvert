@@ -57,7 +57,7 @@ function progressbar(name) {
   let progress = new Progress(80, function(newticks) {
     ticks += newticks;
     bar(name, ticks / 80);
-    delay(0); // Yield to page renderer to allow repaint
+    delay(0); // Yield to page renderer to allow repaint?
   });
   return progress;
 }
@@ -114,6 +114,19 @@ function get_player_name(settings) {
     settings.method + "-" +
     settings.channels + "-" +
     settings.period;
+}
+function constrainedSettings(settings) {
+  let keys = Object.keys(settings).sort();
+  let first = ["title", "artist", "player_name", "resampling_effort"];
+  first.forEach(k => keys.splice(keys.indexOf(k), 1));
+  keys.unshift(...first);
+  let lines = keys.map(key => (key + ": ").padEnd(13) + settings[key]);
+  let left = lines.splice(0, (lines.length+1) >> 1);
+  let lwidth = Math.max(...left.map(l => l.length));
+  let rwidth = Math.max(...lines.map(l => l.length));
+  let pad = lwidth + Math.max(2, 80 - lwidth - rwidth);
+  lines.push("");
+  return left.map((line, i) => line.padEnd(pad) + lines[i] + "\n").join("");
 }
 function getSettings() {
   writeLocalStorage();
@@ -193,9 +206,7 @@ function getSettings() {
     // Adjust frequency since player actually plays exactly 2 frames per scan line
     settings.freq = cycles[settings.region] / 52.5;
   }
-  settingsText.innerText = Object.keys(settings).sort().map(function(key) {
-    return key + ": " + settings[key] + "\n";
-  }).join("");
+  settingsText.innerText = constrainedSettings(settings);
 
   // Derived settings
   settings.maxbytes = maxbytes[settings.maxsize] || (4<<20);
@@ -211,7 +222,7 @@ function resetIndicators() {
   bar("readBar", 0);
   bar("resampleBar", 0);
   bar("convertBar", 0);
-  busy("zipBusy", 0);
+  bar("zipBar", 0);
   text("readMessage", "");
   text("resampleMessage", "");
   text("convertMessage", "");
@@ -246,7 +257,7 @@ function fakeAudio(...args) {
     this.chan[i] = ch;
   };
 }
-async function readSingleFile(e) {
+function readSingleFile(e) {
   let fileinput = document.getElementById("file-input");
   let file = fileinput.files[0];
   if (!file) {
@@ -408,7 +419,7 @@ function get_window_width(settings) {
     default: return 1;
   }
 }
-async function decode(contents, settings, progress) {
+function decode(contents, settings, progress) {
 
   // Create OfflineAudioContext
   let channelcount = settings.channels == "stereo" ? 2 : 1;
@@ -436,7 +447,7 @@ async function decode(contents, settings, progress) {
     });
   }
 }
-async function mix_and_resample(buffer, context, settings) {
+function mix_and_resample(buffer, context, settings) {
   let progress = progressbar("resampleBar");
   global.outrate = settings.freq;
 
@@ -999,12 +1010,13 @@ function zip_and_offer(files, settings) {
     rawsize += files[i].length;
   }
   document.getElementById("rawsize").innerText = rawsize;
-  busy("zipBusy", 1);
+  bar("zipBar", 0);
   zip.generateAsync({type: "blob", compression: "DEFLATE"},
     function updateCallback(metadata) {
-      //console.log("zip: " + metadata.percent);
+      bar("zipBar", metadata.percent / 100);
+      delay(0);
   }).then(function (blob) {
-    busy("zipBusy", 2);
+    bar("zipBar", 1);
     offerDownload(zipname, blob);
   });
 }
@@ -1023,7 +1035,7 @@ function offerDownload(name, blob) {
   setTimeout(offerWave, 0);
 }
 
-async function audioBufferToWaveBlob(audioBuffer) {
+function audioBufferToWaveBlob(audioBuffer) {
   return new Promise(function(resolve, reject) {
     let worker = new Worker('./waveWorker.js');
     worker.onmessage = function( e ) {

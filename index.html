@@ -5,6 +5,8 @@
 .page {
     display: grid;
     width: 1000px;
+    margin-left: auto;
+    margin-right: auto;
     grid-template-columns: 400px auto;
     grid-template-rows: auto auto auto;
     grid-template-areas:
@@ -125,10 +127,10 @@
     Resampling Effort:
     <select name="resampling_effort">
     <option value="ultra">Ultra</option>
-    <option value="high">High</option>
+    <option value="high" selected>High</option>
     <option value="medium">Medium</option>
     <option value="low">Low</option>
-    <option value="none" selected>None</option>
+    <option value="none">None</option>
     </select><br>
     Dither: <input type="checkbox" name="dither"><br>
     Gain: <input type="text" name="gain" value="1" size="10"><br>
@@ -200,7 +202,7 @@
 
 <h3>Zip</h3>
 
-<pre id="zipBusy"></pre>
+<pre id="zipBar"></pre>
 <pre id="zipMessage"></pre>
 
 <h3>Download</h3>
