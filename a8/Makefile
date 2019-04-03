@@ -1,3 +1,4 @@
+pcm-test.run:
 build/players.json: player.asm.pl enumerate obx2json ramdetect.asm hardware.asm
 	mkdir -p build
 	cp -f hardware.asm build
@@ -13,7 +14,7 @@ simple.run:
 
 out = > $@~ && mv $@~ $@
 
-atari = altirra
+atari = altirra-sound-debug
 
 %.run: %.xex
 	$(atari) $<

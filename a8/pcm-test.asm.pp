@@ -6,6 +6,7 @@ indexend org *+1
 wavei org *+1
 offset org *+1
 range org *+1
+pindex org *+1
 
     org $2000
 lo240
@@ -28,7 +29,7 @@ hi256
 dlist
     :4 dta $70
     dta $47,a(scr)
-    :4 dta $7
+    :8 dta $7
     dta $41,a(dlist)
 scr
 scr_wave equ *+12
@@ -39,6 +40,15 @@ scr_offset equ *+12
     dta d'  OFFSET:   0       '
 scr_pulse equ *+12
     dta d'  PULSE:    3/5     '
+    dta d'                    '
+    dta d' W/S - UP/DOWN      '
+    dta d' A/D - CHANGE OPTION'
+    dta d'                    '
+    dta d'                    '
+
+ends
+    dta waveiend,rangeend,$FF,pindexend
+
 
     org [*+$FF]&$FF00
 wavesinfull
@@ -78,12 +88,15 @@ hilo
     dta <hi240,<hi256
 hihi
     dta >hi240,>hi256
+rangeend equ *-hihi
 wavelo
     dta <wavetri,<wavetri14,<wavetrifull,<wavesinfull
 wavehi
     dta >wavetri,>wavetri14,<wavetrifull,>wavesinfull
 waveend
     dta $7F,8*14,$FF,$FF
+waveiend equ *-waveend
+
 
 main
     sei
@@ -95,6 +108,7 @@ main
     mva #0 offset
     sta wavei
     sta range
+    sta pindex
 
 reset
     lda:rne VCOUNT
@@ -103,7 +117,7 @@ reset
     mva #$22 DMACTL
 
     ldx wavei
-    mva waveend,x indexend
+    mva waveend,x cmpindex+1
     mva wavelo,x ldwave+1
     mva wavehi,x ldwave+2
     ldy range
@@ -129,7 +143,8 @@ ldlo
     sty AUDC1
     stx HPOSP0 ; 4 cycles
     ldy index
-    cpy indexend
+cmpindex
+    cpy #$FF
     sne:ldy #$FF
     iny
     sty index
@@ -180,11 +195,10 @@ KHZ15 equ 1<<0
     rts
 ;delay
 ;    dta 8
-pindex
-    dta 0
 paudf1
     dta 3,2
 paudf3
     dta 5,4
+pindexend equ *-paudf3
 
     run main
