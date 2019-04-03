@@ -1,6 +1,6 @@
 // vim: ts=2:sts=2:sw=2:et
 "use strict";
-let version = "0.2.5";
+let version = "0.3-test1";
 let global = {};
 function setElement(element, value) {
   if (element[0] && element[0].type == "radio") {
@@ -71,7 +71,7 @@ function text(name, msg) {
 }
 function formElements() {
   return [
-    "method", "channels", "region", "frequency", "resampling_effort",
+    "method", "channels", "region", "frequency", "resampling_window",
     "media",
     "maxsize",
     "dither",
@@ -117,7 +117,7 @@ function get_player_name(settings) {
 }
 function constrainedSettings(settings) {
   let keys = Object.keys(settings).sort();
-  let first = ["title", "artist", "player_name", "resampling_effort"];
+  let first = ["title", "artist", "player_name", "resampling_window"];
   first.forEach(k => keys.splice(keys.indexOf(k), 1));
   keys.unshift(...first);
   let lines = keys.map(key => (key + ": ").padEnd(13) + settings[key]);
@@ -155,6 +155,8 @@ function getSettings() {
     "1M": 1 << 20,
     "2M": 2 << 20,
     "4M": 4 << 20,
+    "8M": 8 << 20,
+    "16M": 16 << 20,
     "32M": 32 << 20,
     "64M": 64 << 20,
     "128M": 128 << 20,
@@ -411,11 +413,12 @@ function cropBuffer(context, inbuf, frameoffset, framecount) {
   return outbuf;
 }
 function get_window_width(settings) {
-  switch (settings.resampling_effort) {
-    case "ultra": return 2048;
-    case "high": return 1024;
-    case "medium": return 256;
-    case "low": return 32;
+  switch (settings.resampling_window) {
+    case "2048": return 2048;
+    case "1024": return 1024;
+    case "256": return 256;
+    case "32": return 32;
+    case "none": return 1;
     default: return 1;
   }
 }
@@ -607,7 +610,7 @@ function splash(settings, labels) {
     text = text + trunc(" Keys during playback:", 40);
   }
   if (settings.method == "pcm4+4") {
-    text = text + trunc(" A - Toggle hardware/Altirra 3.10-test27", 40);
+    text = text + trunc(" A - Toggle linear/non-linear mixing", 40);
   }
   if (settings.media != "emulator") {
     text = text + trunc(" \x1E - Rewind", 40);

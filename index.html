@@ -124,12 +124,12 @@
 </div> <!-- settingsleft -->
 <div class="settingsright">
 <div>
-    Resampling Effort:
-    <select name="resampling_effort">
-    <option value="ultra">Ultra</option>
-    <option value="high" selected>High</option>
-    <option value="medium">Medium</option>
-    <option value="low">Low</option>
+    Resampling Window:
+    <select name="resampling_window">
+    <option value="2048">2048</option>
+    <option value="1024" selected>1024</option>
+    <option value="256">256</option>
+    <option value="32">32</option>
     <option value="none">None</option>
     </select><br>
     Dither: <input type="checkbox" name="dither"><br>
@@ -137,8 +137,8 @@
     CPU Speed: <input type="text" name="speed" value="1" size="10"><br>
     Offset: <input type="text" name="offset" value="0" size="10"><br>
     Duration: <input type="text" name="duration" value="-1" size="10"><br>
-    Title: <input type="text" name="title" value=""><br>
-    Artist: <input type="text" name="artist" value=""><br>
+    Title: <input type="text" name="title" maxlength="40" value=""><br>
+    Artist: <input type="text" name="artist" maxlength="40" value=""><br>
 </div>
 <div>
     Max size:
@@ -150,6 +150,8 @@
     <option value="1M"> 1M</option>
     <option value="2M"> 2M</option>
     <option value="4M"> 4M</option>
+    <option value="8M"> 8M</option>
+    <option value="16M"> 16M</option>
     <option value="32M"> 32M</option>
     <option value="64M"> 64M</option>
     <option value="128M" selected> 128M</option>
@@ -217,7 +219,7 @@ Preview: <a id="preview"></a>
 </div> <!-- right -->
 
 <div class="footer">
-By Xuel. 2018. MIT License.
+By Xuel. 2019. MIT License.
 Version <b id="version">X.X.X</b>
 <a href="https://github.com/lybrown/fujiconvert">Github</a></div> <!-- footer -->
 
