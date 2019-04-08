@@ -2,7 +2,9 @@
 <html>
 <head>
 <style>
+@import 'https://fonts.googleapis.com/css?family=Roboto';
 .page {
+    font-family: "Roboto", "Helvetica", "Arial", sans-serif;
     display: grid;
     width: 1000px;
     margin-left: auto;
@@ -99,16 +101,19 @@
     at $D600
     <br>
 </div>
+<br>
 <div>
     Channels:<br>
     <input type="radio" name="channels" value="mono" checked> Mono<br>
     <input type="radio" name="channels" value="stereo"> Stereo<br>
 </div>
+<br>
 <div>
     Region:<br>
     <input type="radio" name="region" value="pal" checked> PAL<br>
     <input type="radio" name="region" value="ntsc"> NTSC<br>
 </div>
+<br>
 <div>
     Frequency:<br>
     <!-- <input type="radio" name="frequency" value="58kHz"> 58kHz<br> -->
@@ -158,6 +163,7 @@
     <option value="unlimited"> Unlimited</option>
     </select>
 </div>
+<br>
 <div>
     Output Media:<br>
     <input type="radio" name="media" value="ram"> RAM XEX<br>
@@ -169,6 +175,7 @@
     <input type="radio" name="media" value="megacart"> MegaCart<br>
     <input type="radio" name="media" value="xegs"> XEGS<br>
     <input type="radio" name="media" value="sic"> SIC!<br>
+<br>
     Cart File Type:<br>
     <input type="checkbox" name="car" checked>.car<br>
     <input type="checkbox" name="raw">.raw<br>
