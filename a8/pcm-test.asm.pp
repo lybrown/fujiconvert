@@ -2,11 +2,15 @@
 
     org $80
 index org *+1
-indexend org *+1
+vars
 wavei org *+1
-offset org *+1
 range org *+1
+offset org *+1
 pindex org *+1
+gy org *+1
+keyrepeat org *+1
+rem org *+1
+d org *+1
 
     org $2000
 lo240
@@ -32,51 +36,109 @@ dlist
     :8 dta $7
     dta $41,a(dlist)
 scr
-scr_wave equ *+12
-    dta d'* WAVEFORM: TRI     '
-scr_range equ *+12
-    dta d'  RANGE:    240     '
-scr_offset equ *+12
-    dta d'  OFFSET:   0       '
-scr_pulse equ *+12
-    dta d'  PULSE:    3/5     '
+scr_wave equ *+11
+    dta d' waveform: tri      '
+scr_range equ *+11
+    dta d'    range: 240      '
+scr_offset equ *+11
+    dta d'   offset: 0        '
+scr_pulse equ *+11
+    dta d'    pulse: 3/5      '
     dta d'                    '
-    dta d' W/S - UP/DOWN      '
-    dta d' A/D - CHANGE OPTION'
+    dta d' w/s - up/down      '
+    dta d' a/d - change option'
     dta d'                    '
-    dta d'                    '
-
-ends
-    dta waveiend,rangeend,$FF,pindexend
+    dta d' any key - reset    '
+leftmark
+    dta d'   >   '*
+rightmark
+    dta d'   <   '*
 
 
     org [*+$FF]&$FF00
-wavesinfull
->>> for ($i = 0; $i < 256; ++$i) {
->>>   $s = int(sin($i / 128 * 3.141592654 + 0.29) * 119.9 + 128);
-;>>>   $s = int(sin($i / 128 * 3.141592654) * 119.9 + 128);
+wavetri112
+>>> $period = 8*14;
+>>> $pad = (256-$period/2)>>1;
+>>> for $rep (0, 1) {
+>>> for ($i = 0; $i < $period; ++$i) {
+>>>   $s = $i<$period/2 ? $pad + $i : 256 - $pad - ($i - $period/2);
     dta <<<$s>>>
 >>> }
+>>> }
     org [*+$FF]&$FF00
-wavetri
+wavetri224
+>>> $period = 16*14;
+>>> $pad = (256-$period/2)>>1;
+>>> for $rep (0, 1) {
+>>> for ($i = 0; $i < $period; ++$i) {
+>>>   $s = $i<$period/2 ? $pad + $i : 256 - $pad - ($i - $period/2);
+    dta <<<$s>>>
+>>> }
+>>> }
+    org [*+$FF]&$FF00
+wavetri128
 >>> for ($i = 0; $i < 256; ++$i) {
 >>>   $s = ($i & 0x40) ? 0x40 - ($i & 0x3F) : ($i & 0x3F);
 >>>   $s += 0x60;
     dta <<<$s>>>
 >>> }
     org [*+$FF]&$FF00
-wavetri14
->>> $period = 8*14;
+wavetri256
+>>> for ($i = 0; $i < 256; ++$i) {
+>>>   $s = int(8 + ($i < 128 ? $i : 255 - $i) * 240 / 128);
+>>>   $s += 0x08;
+    dta <<<$s>>>
+>>> }
+    org [*+$FF]&$FF00
+wavetri131
+>>> $period = 131;
+>>> $pad = (256-$period/2)>>1;
+>>> for ($i = 0; $i < $period; ++$i) {
+>>>   $s = $i<$period/2 ? $pad + $i : 256 - $pad - ($i - ($period>>1));
+    dta <<<$s>>>
+>>> }
+    org [*+$FF]&$FF00
+wavetri156
+>>> $period = 156;
 >>> $pad = (256-$period/2)>>1;
 >>> for ($i = 0; $i < $period; ++$i) {
 >>>   $s = $i<$period/2 ? $pad + $i : 256 - $pad - ($i - $period/2);
     dta <<<$s>>>
 >>> }
     org [*+$FF]&$FF00
-wavetrifull
+wavesin112
+>>> for ($i = 0; $i < 224; ++$i) {
+>>>   $s = int(sin($i / 56 * 3.141592654) * 119.9 + 128);
+    dta <<<$s>>>
+>>> }
+    org [*+$FF]&$FF00
+wavesin224
+>>> for ($i = 0; $i < 224; ++$i) {
+>>>   $s = int(sin($i / 112 * 3.141592654) * 119.9 + 128);
+    dta <<<$s>>>
+>>> }
+    org [*+$FF]&$FF00
+wavesin128
 >>> for ($i = 0; $i < 256; ++$i) {
->>>   $s = int(8 + ($i < 128 ? $i : 255 - $i) * 240 / 128);
->>>   $s += 0x08;
+>>>   $s = int(sin($i / 64 * 3.141592654) * 119.9 + 128);
+    dta <<<$s>>>
+>>> }
+    org [*+$FF]&$FF00
+wavesin256
+>>> for ($i = 0; $i < 256; ++$i) {
+>>>   $s = int(sin($i / 128 * 3.141592654) * 119.9 + 128);
+    dta <<<$s>>>
+>>> }
+    org [*+$FF]&$FF00
+wavesin131
+>>> for ($i = 0; $i < 131; ++$i) {
+>>>   $s = int(sin($i / 65.5 * 3.141592654) * 119.9 + 128);
+    dta <<<$s>>>
+>>> }
+    org [*+$FF]&$FF00
+wavesin156
+>>> for ($i = 0; $i < 156; ++$i) {
+>>>   $s = int(sin($i / 78 * 3.141592654) * 119.9 + 128);
     dta <<<$s>>>
 >>> }
 
@@ -88,15 +150,31 @@ hilo
     dta <hi240,<hi256
 hihi
     dta >hi240,>hi256
-rangeend equ *-hihi
 wavelo
-    dta <wavetri,<wavetri14,<wavetrifull,<wavesinfull
+    dta <wavetri112,<wavetri224,<wavetri128,<wavetri256
+    dta <wavetri131,<wavetri156
+    dta <wavesin112,<wavesin224,<wavesin128,<wavesin256
+    dta <wavesin131,<wavesin156
+wavecount equ *-wavelo
 wavehi
-    dta >wavetri,>wavetri14,<wavetrifull,>wavesinfull
+    dta >wavetri112,>wavetri224,>wavetri128,>wavetri256
+    dta >wavetri131,>wavetri156
+    dta >wavesin112,>wavesin224,>wavesin128,>wavesin256
+    dta >wavesin131,>wavesin156
 waveend
-    dta $7F,8*14,$FF,$FF
-waveiend equ *-waveend
+    :2 dta 16*14-1,16*14-1,$FF,$FF,130,155
 
+wavestr
+    dta d'TRI112  TRI224  TRI128  TRI256  TRI131  TRI156  '
+    dta d'SIN112  SIN224  SIN128  SIN256  SIN131  SIN156  '
+rangestr
+    dta d'240 256 '
+pulsestr
+    dta d'0/2 1/3 2/4 3/5 4/6 5/6 6/7 7/8 8/9 '
+digits
+    dta d'0123456789'
+delay
+    dta 8
 
 main
     sei
@@ -105,16 +183,19 @@ main
     sta AUDCTL
     mva #$F COLPM0 ; channel 1
     mva #$FF GRAFP0
-    mva #0 offset
-    sta wavei
+    mva #$8 PRIOR
+    mva #0 wavei
     sta range
-    sta pindex
+    sta offset
+    sta gy
+    mva #3 pindex
 
-reset
     lda:rne VCOUNT
-    inc WSYNC
     mwa #dlist DLISTL
     mva #$22 DMACTL
+
+reset
+    jsr draw_menu
 
     ldx wavei
     mva waveend,x cmpindex+1
@@ -127,7 +208,11 @@ reset
     mva hihi,y ldhi+2
     mva offset index
 
+    lda:req VCOUNT
 start
+    inc WSYNC
+    lda VCOUNT
+    bne start
     jsr setpulse
 
     ldy index ; 3 cycles
@@ -145,7 +230,18 @@ ldlo
     ldy index
 cmpindex
     cpy #$FF
-    sne:ldy #$FF
+    bne cont
+    dec keyrepeat
+    bne contloop
+    mva #13 keyrepeat
+    ldy #0
+    sty index
+    jmp keyup
+contloop
+    ldy #0
+    sty index
+    jmp play
+cont
     iny
     sty index
     lda SKSTAT
@@ -159,20 +255,93 @@ keyup
     mva #[keydown-keyjmp-2] keyjmp+1
     jmp play
 keydown
+    mva #13 keyrepeat
     mva #{bne} keyjmp
     mva #[keyup-keyjmp-2] keyjmp+1
-    inc scr_offset
-    inc wavei
     lda KBCODE
-;    cmp #31 ; '1'
-;    sne:mvx #0 optwaveform
-;    cmp #30 ; '2'
-;    sne:mvx #1 optwaveform
-;    cmp #26 ; '3'
-;    sne:mvx #2 optwaveform
-;    cmp #24 ; '4'
-;    sne:mvx #3 optwaveform
+    ldx gy
+    cmp #46 ; 'W'
+    sne:dex
+    cmp #62 ; 'S'
+    sne:inx
+    cmp #63 ; 'A'
+    sne:dec vars,x
+    cmp #58 ; 'D'
+    sne:inc vars,x
+    txa
+    and #3
+    sta gy
     jmp reset
+
+draw_menu
+    ; wavei
+    ; -----
+    lda wavei
+    spl:lda #wavecount-1
+    cmp #wavecount
+    scc:lda #0
+    sta wavei
+    :3 asl @
+    add #7
+    tax
+    ldy #7
+    mva:rpl wavestr,x- scr_wave,y-
+    ; range
+    ; -----
+    lda range
+    and #1
+    sta range
+    :2 asl @
+    add #3
+    tax
+    ldy #3
+    mva:rpl rangestr,x- scr_range,y-
+    ; offset
+    ; ------
+    lda offset
+    ldx #100
+    jsr div
+    mvy digits,x scr_offset
+    ldx #10
+    jsr div
+    mvy digits,x scr_offset+1
+    tax
+    mvy digits,x scr_offset+2
+    ; pindex
+    ; ------
+    lda pindex
+    and #7
+    sta pindex
+    :2 asl @
+    add #3
+    tax
+    ldy #3
+    mva:rpl pulsestr,x- scr_pulse,y-
+    ; mark
+    ; ----
+    ldx gy
+    mva leftmark+3,x scr_wave-1
+    mva rightmark+3,x scr_wave+7
+    mva leftmark+2,x scr_range-1
+    mva rightmark+2,x scr_range+7
+    mva leftmark+1,x scr_offset-1
+    mva rightmark+1,x scr_offset+7
+    mva leftmark,x scr_pulse-1
+    mva rightmark,x scr_pulse+7
+    rts
+
+div
+    stx d
+    ldx #0
+divloop
+    sta rem
+    sub d
+    bcc divdone
+    inx
+    jmp divloop
+divdone
+    lda rem
+    rts
 
 setpulse
     ; 1.79Mhz for channel 1
@@ -186,19 +355,14 @@ KHZ15 equ 1<<0
     mva #[FAST1|FAST3|HI13] AUDCTL
     ; Set up 1/16 dutycycle HiPass on 1+3
     ldx pindex
-    mva paudf3,x AUDF3
-    mva paudf1,x AUDF1
-    sta STIMER
+    txa
+    add #2
+    stx AUDF1
     sta AUDF3
+    sta STIMER
+    stx AUDF3
     ;ldx delay
     ;dex:rne
     rts
-;delay
-;    dta 8
-paudf1
-    dta 3,2
-paudf3
-    dta 5,4
-pindexend equ *-paudf3
 
     run main
