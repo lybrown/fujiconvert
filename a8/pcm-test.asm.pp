@@ -6,11 +6,12 @@ vars
 wavei org *+1
 range org *+1
 offset org *+1
-pindex org *+1
+pulseperiod org *+1
 gy org *+1
 keyrepeat org *+1
 rem org *+1
 d org *+1
+lastkey org *+1
 
     org $2000
 lo240
@@ -165,14 +166,14 @@ waveend
     :2 dta 16*14-1,16*14-1,$FF,$FF,130,155
 
 wavestr
-    dta d'TRI112  TRI224  TRI128  TRI256  TRI131  TRI156  '
-    dta d'SIN112  SIN224  SIN128  SIN256  SIN131  SIN156  '
+    dta d'TRI112  TRI224  TRI128  TRI256  TRI131  TRI156  '*
+    dta d'SIN112  SIN224  SIN128  SIN256  SIN131  SIN156  '*
 rangestr
-    dta d'240 256 '
+    dta d'240 256 '*
 pulsestr
-    dta d'0/2 1/3 2/4 3/5 4/6 5/6 6/7 7/8 8/9 '
+    dta d'0/2 1/3 2/4 3/5 4/6 5/6 6/7 7/8 8/9 '*
 digits
-    dta d'0123456789'
+    dta d'0123456789'*
 delay
     dta 8
 
@@ -181,14 +182,15 @@ main
     mva #0 NMIEN
     sta DMACTL
     sta AUDCTL
-    mva #$F COLPM0 ; channel 1
+    mva #$08 COLPM0 ; channel 1
     mva #$FF GRAFP0
-    mva #$8 PRIOR
-    mva #0 wavei
-    sta range
+    mva #$04 PRIOR
+    mva #5 wavei
+    mva #3 pulseperiod
+    mva #$FF lastkey
+    mva #0 range
     sta offset
     sta gy
-    mva #3 pindex
 
     lda:rne VCOUNT
     mwa #dlist DLISTL
@@ -209,6 +211,9 @@ reset
     mva offset index
 
     lda:req VCOUNT
+    jmp start
+
+    org [*+$FF]&$FF00
 start
     inc WSYNC
     lda VCOUNT
@@ -230,34 +235,27 @@ ldlo
     ldy index
 cmpindex
     cpy #$FF
-    bne cont
-    dec keyrepeat
-    bne contloop
-    mva #13 keyrepeat
-    ldy #0
-    sty index
-    jmp keyup
-contloop
-    ldy #0
-    sty index
-    jmp play
+    beq loop
 cont
     iny
     sty index
     lda SKSTAT
     and #4
-keyjmp
-    beq keydown
+    cmp:sta lastkey
+    bcc keydown
+    jmp play
+loop
+    mvy #0 index
+    dec keyrepeat
+    beq keyup
     jmp play
 
 keyup
-    mva #{beq} keyjmp
-    mva #[keydown-keyjmp-2] keyjmp+1
+    mva #10 keyrepeat
+    mva #4 lastkey
     jmp play
 keydown
-    mva #13 keyrepeat
-    mva #{bne} keyjmp
-    mva #[keyup-keyjmp-2] keyjmp+1
+    mva #18 keyrepeat
     lda KBCODE
     ldx gy
     cmp #46 ; 'W'
@@ -307,11 +305,11 @@ draw_menu
     mvy digits,x scr_offset+1
     tax
     mvy digits,x scr_offset+2
-    ; pindex
+    ; pulseperiod
     ; ------
-    lda pindex
+    lda pulseperiod
     and #7
-    sta pindex
+    sta pulseperiod
     :2 asl @
     add #3
     tax
@@ -321,13 +319,13 @@ draw_menu
     ; ----
     ldx gy
     mva leftmark+3,x scr_wave-1
-    mva rightmark+3,x scr_wave+7
+    mva rightmark+3,x scr_wave+6
     mva leftmark+2,x scr_range-1
-    mva rightmark+2,x scr_range+7
+    mva rightmark+2,x scr_range+6
     mva leftmark+1,x scr_offset-1
-    mva rightmark+1,x scr_offset+7
+    mva rightmark+1,x scr_offset+6
     mva leftmark,x scr_pulse-1
-    mva rightmark,x scr_pulse+7
+    mva rightmark,x scr_pulse+6
     rts
 
 div
@@ -352,9 +350,11 @@ FAST3 equ 1<<5
 HI13 equ 1<<2
     ; 15Khz
 KHZ15 equ 1<<0
+    mva #0 SKCTL
+    mva #3 SKCTL
     mva #[FAST1|FAST3|HI13] AUDCTL
     ; Set up 1/16 dutycycle HiPass on 1+3
-    ldx pindex
+    ldx pulseperiod
     txa
     add #2
     stx AUDF1
