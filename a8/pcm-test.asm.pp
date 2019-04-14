@@ -9,11 +9,26 @@ offset org *+1
 pulseperiod org *+1
 gy org *+1
 keyrepeat org *+1
+keyrepeat_count_first org *+1
+keyrepeat_count_again org *+1
 rem org *+1
 d org *+1
 lastkey org *+1
+editptr org *+2
+editdelta org *+1
+editoffset org *+1
 
     org $2000
+lo224
+    ert <*!=0
+    :16 dta $A0
+    :224 dta $A0|[[#+1+2*[#/14]]&$F]
+    :16 dta $AF
+hi224
+    ert <*!=0
+    :16 dta $10
+    :224 dta $10|[[#+1+2*[#/14]]>>4]
+    :16 dta $1F
 lo240
     ert <*!=0
     :8 dta $A0
@@ -30,31 +45,6 @@ lo256
 hi256
     ert <*!=0
     :256 dta $10|[#>>4]
-
-dlist
-    :4 dta $70
-    dta $47,a(scr)
-    :8 dta $7
-    dta $41,a(dlist)
-scr
-scr_wave equ *+11
-    dta d' waveform: tri      '
-scr_range equ *+11
-    dta d'    range: 240      '
-scr_offset equ *+11
-    dta d'   offset: 0        '
-scr_pulse equ *+11
-    dta d'    pulse: 3/5      '
-    dta d'                    '
-    dta d' w/s - up/down      '
-    dta d' a/d - change option'
-    dta d'                    '
-    dta d' any key - reset    '
-leftmark
-    dta d'   >   '*
-rightmark
-    dta d'   <   '*
-
 
     org [*+$FF]&$FF00
 wavetri112
@@ -109,48 +99,50 @@ wavetri156
     org [*+$FF]&$FF00
 wavesin112
 >>> for ($i = 0; $i < 224; ++$i) {
->>>   $s = int(sin($i / 56 * 3.141592654) * 119.9 + 128);
+>>>   $s = int(sin($i / 56 * 3.141592654) * 111.9 + 128);
     dta <<<$s>>>
 >>> }
     org [*+$FF]&$FF00
 wavesin224
 >>> for ($i = 0; $i < 224; ++$i) {
->>>   $s = int(sin($i / 112 * 3.141592654) * 119.9 + 128);
+>>>   $s = int(sin($i / 112 * 3.141592654) * 111.9 + 128);
     dta <<<$s>>>
 >>> }
     org [*+$FF]&$FF00
 wavesin128
 >>> for ($i = 0; $i < 256; ++$i) {
->>>   $s = int(sin($i / 64 * 3.141592654) * 119.9 + 128);
+>>>   $s = int(sin($i / 64 * 3.141592654) * 111.9 + 128);
     dta <<<$s>>>
 >>> }
     org [*+$FF]&$FF00
 wavesin256
 >>> for ($i = 0; $i < 256; ++$i) {
->>>   $s = int(sin($i / 128 * 3.141592654) * 119.9 + 128);
+>>>   $s = int(sin($i / 128 * 3.141592654) * 111.9 + 128);
     dta <<<$s>>>
 >>> }
     org [*+$FF]&$FF00
 wavesin131
 >>> for ($i = 0; $i < 131; ++$i) {
->>>   $s = int(sin($i / 65.5 * 3.141592654) * 119.9 + 128);
+>>>   $s = int(sin($i / 65.5 * 3.141592654) * 111.9 + 128);
     dta <<<$s>>>
 >>> }
     org [*+$FF]&$FF00
 wavesin156
 >>> for ($i = 0; $i < 156; ++$i) {
->>>   $s = int(sin($i / 78 * 3.141592654) * 119.9 + 128);
+>>>   $s = int(sin($i / 78 * 3.141592654) * 111.9 + 128);
     dta <<<$s>>>
 >>> }
 
+    org [*+$FF]&$FF00
 lolo
-    dta <lo240,<lo256
+    dta <lo224,<lo240,<lo256
+rangecount equ *-lolo
 lohi
-    dta >lo240,>lo256
+    dta >lo224,>lo240,>lo256
 hilo
-    dta <hi240,<hi256
+    dta <hi224,<hi240,<hi256
 hihi
-    dta >hi240,>hi256
+    dta >hi224,>hi240,>hi256
 wavelo
     dta <wavetri112,<wavetri224,<wavetri128,<wavetri256
     dta <wavetri131,<wavetri156
@@ -164,16 +156,45 @@ wavehi
     dta >wavesin131,>wavesin156
 waveend
     :2 dta 16*14-1,16*14-1,$FF,$FF,130,155
+keyrepeattbl
+    :2 dta 11,11,9,9,19,16
 
+dlist
+    :4 dta $70
+    dta $47,a(scr)
+    :10 dta $7
+    dta $41,a(dlist)
+scr
+scr_wave equ *+11
+    dta d' waveform: tri      '
+scr_range equ *+11
+    dta d'    range: 240      '
+scr_offset equ *+11
+    dta d'   offset: 0        '
+scr_pulse equ *+11
+    dta d'    pulse: 3/5      '
+    dta d' w/s - up/down      '
+    dta d' a/d - change option'
+    dta d' any key - reset    '
+    dta d'                    '
+scr_editoffset equ *+6
+scr_editvalue equ *+17
+    dta d'edit:     value:    '
+    dta d' i/k - edit inc/dec '
+    dta d' j/l - edit </>     '
+leftmark
+    dta d'   >   '*
+rightmark
+    dta d'   <   '*
 wavestr
     dta d'TRI112  TRI224  TRI128  TRI256  TRI131  TRI156  '*
     dta d'SIN112  SIN224  SIN128  SIN256  SIN131  SIN156  '*
 rangestr
-    dta d'240 256 '*
+    dta d'224 240 256 '*
 pulsestr
-    dta d'0/2 1/3 2/4 3/5 4/6 5/6 6/7 7/8 8/9 '*
+    dta d'0/2 1/3 2/4 3/5 4/6 5/7 6/8 7/9 '*
 digits
-    dta d'0123456789'*
+    dta d'0123456789ABCDEF'*
 delay
     dta 8
 
@@ -187,9 +208,10 @@ main
     mva #$04 PRIOR
     mva #5 wavei
     mva #3 pulseperiod
-    mva #$FF lastkey
+    mva #4 lastkey
     mva #0 range
     sta offset
+    sta editoffset
     sta gy
 
     lda:rne VCOUNT
@@ -201,8 +223,13 @@ reset
 
     ldx wavei
     mva waveend,x cmpindex+1
+    mva keyrepeattbl,x keyrepeat_count_first
+    lsr @
+    sta keyrepeat_count_again
     mva wavelo,x ldwave+1
+    sta editptr
     mva wavehi,x ldwave+2
+    sta editptr+1
     ldy range
     mva lolo,y ldlo+1
     mva lohi,y ldlo+2
@@ -242,22 +269,29 @@ cont
     lda SKSTAT
     and #4
     cmp:sta lastkey
-    bcc keydown
-    jmp play
+    bcs play
+    jmp keydown
 loop
     mvy #0 index
     dec keyrepeat
-    beq keyup
+    beq virtualkeyup
     jmp play
 
-keyup
-    mva #10 keyrepeat
+; -------v--------v--------v-----d------------vr-------vr----u---v-------v
+
+virtualkeyup
     mva #4 lastkey
     jmp play
 keydown
-    mva #18 keyrepeat
-    lda KBCODE
+    lda keyrepeat_count_first
+    ldy index
+    cpy #1
+    sne:lda keyrepeat_count_again
+    sta keyrepeat
+    mva #0 editdelta
+    ldy editoffset
     ldx gy
+    lda KBCODE
     cmp #46 ; 'W'
     sne:dex
     cmp #62 ; 'S'
@@ -266,9 +300,20 @@ keydown
     sne:dec vars,x
     cmp #58 ; 'D'
     sne:inc vars,x
+    cmp #13 ; 'I'
+    sne:inc editdelta
+    cmp #5  ; 'K'
+    sne:dec editdelta
+    cmp #1  ; 'J'
+    sne:dey
+    cmp #0  ; 'L'
+    sne:iny
     txa
     and #3
     sta gy
+    lda editdelta
+    add:sta (editptr),y
+    sty editoffset
     jmp reset
 
 draw_menu
@@ -287,7 +332,9 @@ draw_menu
     ; range
     ; -----
     lda range
-    and #1
+    spl:lda #rangecount-1
+    cmp #rangecount
+    scc:lda #0
     sta range
     :2 asl @
     add #3
@@ -305,6 +352,28 @@ draw_menu
     mvy digits,x scr_offset+1
     tax
     mvy digits,x scr_offset+2
+    ; editoffset
+    ; -----------
+    lda editoffset
+    ldx #100
+    jsr div
+    mvy digits,x scr_editoffset
+    ldx #10
+    jsr div
+    mvy digits,x scr_editoffset+1
+    tax
+    mvy digits,x scr_editoffset+2
+    ; editvalue
+    ; -----------
+    ldy editoffset
+    lda (editptr),y
+    :4 lsr @
+    tax
+    mva digits,x scr_editvalue
+    lda (editptr),y
+    and #15
+    tax
+    mva digits,x scr_editvalue+1
     ; pulseperiod
     ; ------
     lda pulseperiod
