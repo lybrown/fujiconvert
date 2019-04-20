@@ -7,6 +7,8 @@ wavei org *+1
 range org *+1
 offset org *+1
 pulseperiod org *+1
+pulsediff org *+1
+varcount equ *-vars
 gy org *+1
 keyrepeat org *+1
 keyrepeat_count_first org *+1
@@ -160,9 +162,9 @@ keyrepeattbl
     :2 dta 11,11,9,9,19,16
 
 dlist
-    :4 dta $70
+    :3 dta $70
     dta $47,a(scr)
-    :10 dta $7
+    :11 dta $7
     dta $41,a(dlist)
 scr
 scr_wave equ *+11
@@ -172,7 +174,9 @@ scr_range equ *+11
 scr_offset equ *+11
     dta d'   offset: 0        '
 scr_pulse equ *+11
-    dta d'    pulse: 3/5      '
+    dta d'    pulse: 003/005  '
+scr_pulsediff equ *+11
+    dta d'pulsediff: 02       '
     dta d' w/s - up/down      '
     dta d' a/d - change option'
     dta d' any key - reset    '
@@ -180,19 +184,17 @@ scr_pulse equ *+11
 scr_editoffset equ *+6
 scr_editvalue equ *+17
     dta d'edit:     value:    '
-    dta d' i/k - edit inc/dec '
-    dta d' j/l - edit </>     '
+    dta d' i/k - up/down      '
+    dta d' j/l - left/right   '
 leftmark
-    dta d'   >   '*
+    dta d'    >    '*
 rightmark
-    dta d'   <   '*
+    dta d'    <    '*
 wavestr
     dta d'TRI112  TRI224  TRI128  TRI256  TRI131  TRI156  '*
     dta d'SIN112  SIN224  SIN128  SIN256  SIN131  SIN156  '*
 rangestr
     dta d'224 240 256 '*
-pulsestr
-    dta d'0/2 1/3 2/4 3/5 4/6 5/7 6/8 7/9 '*
 digits
     dta d'0123456789ABCDEF'*
 delay
@@ -208,6 +210,7 @@ main
     mva #$04 PRIOR
     mva #5 wavei
     mva #3 pulseperiod
+    mva #2 pulsediff
     mva #4 lastkey
     mva #0 range
     sta offset
@@ -308,9 +311,11 @@ keydown
     sne:dey
     cmp #0  ; 'L'
     sne:iny
-    txa
-    and #3
-    sta gy
+    txa ; set N flag per X register
+    spl:ldx #varcount-1
+    cpx #varcount
+    scc:ldx #0
+    stx gy
     lda editdelta
     add:sta (editptr),y
     sty editoffset
@@ -367,34 +372,56 @@ draw_menu
     ; -----------
     ldy editoffset
     lda (editptr),y
-    :4 lsr @
+    ldx #16
+    jsr div
+    mvy digits,x scr_editvalue
     tax
-    mva digits,x scr_editvalue
-    lda (editptr),y
-    and #15
-    tax
-    mva digits,x scr_editvalue+1
+    mvy digits,x scr_editvalue+1
     ; pulseperiod
     ; ------
     lda pulseperiod
-    and #7
-    sta pulseperiod
-    :2 asl @
-    add #3
+    ldx #100
+    jsr div
+    mvy digits,x scr_pulse
+    ldx #10
+    jsr div
+    mvy digits,x scr_pulse+1
     tax
-    ldy #3
-    mva:rpl pulsestr,x- scr_pulse,y-
+    mvy digits,x scr_pulse+2
+    lda pulseperiod
+    add pulsediff
+    ldx #100
+    jsr div
+    mvy digits,x scr_pulse+4
+    ldx #10
+    jsr div
+    mvy digits,x scr_pulse+5
+    tax
+    mvy digits,x scr_pulse+6
+    ; pulsediff
+    ; ------
+    lda pulsediff
+    ldx #100
+    jsr div
+    mvy digits,x scr_pulsediff
+    ldx #10
+    jsr div
+    mvy digits,x scr_pulsediff+1
+    tax
+    mvy digits,x scr_pulsediff+2
     ; mark
     ; ----
     ldx gy
-    mva leftmark+3,x scr_wave-1
-    mva rightmark+3,x scr_wave+6
-    mva leftmark+2,x scr_range-1
-    mva rightmark+2,x scr_range+6
-    mva leftmark+1,x scr_offset-1
-    mva rightmark+1,x scr_offset+6
-    mva leftmark,x scr_pulse-1
-    mva rightmark,x scr_pulse+6
+    mva leftmark+4,x scr_wave-1
+    mva rightmark+4,x scr_wave+7
+    mva leftmark+3,x scr_range-1
+    mva rightmark+3,x scr_range+7
+    mva leftmark+2,x scr_offset-1
+    mva rightmark+2,x scr_offset+7
+    mva leftmark+1,x scr_pulse-1
+    mva rightmark+1,x scr_pulse+7
+    mva leftmark,x scr_pulsediff-1
+    mva rightmark,x scr_pulsediff+7
     rts
 
 div
@@ -425,7 +452,7 @@ KHZ15 equ 1<<0
     ; Set up 1/16 dutycycle HiPass on 1+3
     ldx pulseperiod
     txa
-    add #2
+    add pulsediff
     stx AUDF1
     sta AUDF3
     sta STIMER
