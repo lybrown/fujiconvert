@@ -21,6 +21,16 @@ editdelta org *+1
 editoffset org *+1
 
     org $2000
+lo208
+    ert <*!=0
+    :24 dta $A0
+    :208 dta $A0|[[#+1+3*[#/13]]&$F]
+    :24 dta $AF
+hi208
+    ert <*!=0
+    :24 dta $10
+    :208 dta $10|[[#+1+3*[#/13]]>>4]
+    :24 dta $1F
 lo224
     ert <*!=0
     :16 dta $A0
@@ -49,117 +59,47 @@ hi256
     :256 dta $10|[#>>4]
 
     org [*+$FF]&$FF00
-wavetri112
->>> $period = 8*14;
->>> $pad = (256-$period/2)>>1;
->>> for $rep (0, 1) {
->>> for ($i = 0; $i < $period; ++$i) {
->>>   $s = $i<$period/2 ? $pad + $i : 256 - $pad - ($i - $period/2);
+>>> for $period (qw(104 208 112 224 120 240 128 256 131 156)) {
+wavetri<<<$period>>>
+>>>   $pad = (256-$period/2)>>1;
+>>>   for ($i = 0; $i < 256; ++$i) {
+>>>     $im = $i%$period;
+>>>     $s = $im<$period/2 ? $pad + $im : 256 - $pad - ($im - ($period>>1));
     dta <<<$s>>>
->>> }
->>> }
+>>>   }
     org [*+$FF]&$FF00
-wavetri224
->>> $period = 16*14;
->>> $pad = (256-$period/2)>>1;
->>> for $rep (0, 1) {
->>> for ($i = 0; $i < $period; ++$i) {
->>>   $s = $i<$period/2 ? $pad + $i : 256 - $pad - ($i - $period/2);
+wavesin<<<$period>>>
+>>>   for ($i = 0; $i < 256; ++$i) {
+>>>     $s = int(sin($i / ($period/2) * 3.141592654) * 103.9 + 128);
     dta <<<$s>>>
->>> }
->>> }
-    org [*+$FF]&$FF00
-wavetri128
->>> for ($i = 0; $i < 256; ++$i) {
->>>   $s = ($i & 0x40) ? 0x40 - ($i & 0x3F) : ($i & 0x3F);
->>>   $s += 0x60;
-    dta <<<$s>>>
->>> }
-    org [*+$FF]&$FF00
-wavetri256
->>> for ($i = 0; $i < 256; ++$i) {
->>>   $s = int(8 + ($i < 128 ? $i : 255 - $i) * 240 / 128);
->>>   $s += 0x08;
-    dta <<<$s>>>
->>> }
-    org [*+$FF]&$FF00
-wavetri131
->>> $period = 131;
->>> $pad = (256-$period/2)>>1;
->>> for ($i = 0; $i < $period; ++$i) {
->>>   $s = $i<$period/2 ? $pad + $i : 256 - $pad - ($i - ($period>>1));
-    dta <<<$s>>>
->>> }
-    org [*+$FF]&$FF00
-wavetri156
->>> $period = 156;
->>> $pad = (256-$period/2)>>1;
->>> for ($i = 0; $i < $period; ++$i) {
->>>   $s = $i<$period/2 ? $pad + $i : 256 - $pad - ($i - $period/2);
-    dta <<<$s>>>
->>> }
-    org [*+$FF]&$FF00
-wavesin112
->>> for ($i = 0; $i < 224; ++$i) {
->>>   $s = int(sin($i / 56 * 3.141592654) * 111.9 + 128);
-    dta <<<$s>>>
->>> }
-    org [*+$FF]&$FF00
-wavesin224
->>> for ($i = 0; $i < 224; ++$i) {
->>>   $s = int(sin($i / 112 * 3.141592654) * 111.9 + 128);
-    dta <<<$s>>>
->>> }
-    org [*+$FF]&$FF00
-wavesin128
->>> for ($i = 0; $i < 256; ++$i) {
->>>   $s = int(sin($i / 64 * 3.141592654) * 111.9 + 128);
-    dta <<<$s>>>
->>> }
-    org [*+$FF]&$FF00
-wavesin256
->>> for ($i = 0; $i < 256; ++$i) {
->>>   $s = int(sin($i / 128 * 3.141592654) * 111.9 + 128);
-    dta <<<$s>>>
->>> }
-    org [*+$FF]&$FF00
-wavesin131
->>> for ($i = 0; $i < 131; ++$i) {
->>>   $s = int(sin($i / 65.5 * 3.141592654) * 111.9 + 128);
-    dta <<<$s>>>
->>> }
-    org [*+$FF]&$FF00
-wavesin156
->>> for ($i = 0; $i < 156; ++$i) {
->>>   $s = int(sin($i / 78 * 3.141592654) * 111.9 + 128);
-    dta <<<$s>>>
+>>>   }
 >>> }
 
     org [*+$FF]&$FF00
 lolo
-    dta <lo224,<lo240,<lo256
+    dta <lo208,<lo224,<lo240,<lo256
 rangecount equ *-lolo
 lohi
-    dta >lo224,>lo240,>lo256
+    dta >lo208,>lo224,>lo240,>lo256
 hilo
-    dta <hi224,<hi240,<hi256
+    dta <hi208,<hi224,<hi240,<hi256
 hihi
-    dta >hi224,>hi240,>hi256
+    dta >hi208,>hi224,>hi240,>hi256
 wavelo
-    dta <wavetri112,<wavetri224,<wavetri128,<wavetri256
+    dta <wavetri104,<wavetri208,<wavetri112,<wavetri224,<wavetri128,<wavetri256
     dta <wavetri131,<wavetri156
-    dta <wavesin112,<wavesin224,<wavesin128,<wavesin256
+    dta <wavesin104,<wavesin208,<wavesin112,<wavesin224,<wavesin128,<wavesin256
     dta <wavesin131,<wavesin156
 wavecount equ *-wavelo
 wavehi
-    dta >wavetri112,>wavetri224,>wavetri128,>wavetri256
+    dta >wavetri104,>wavetri208,>wavetri112,>wavetri224,>wavetri128,>wavetri256
     dta >wavetri131,>wavetri156
-    dta >wavesin112,>wavesin224,>wavesin128,>wavesin256
+    dta >wavesin104,>wavesin208,>wavesin112,>wavesin224,>wavesin128,>wavesin256
     dta >wavesin131,>wavesin156
 waveend
-    :2 dta 16*14-1,16*14-1,$FF,$FF,130,155
+    :2 dta 207,207,16*14-1,16*14-1,$FF,$FF,130,155
 keyrepeattbl
-    :2 dta 11,11,9,9,19,16
+    :2 dta 14,14,11,11,9,9,19,16
 
 dlist
     :3 dta $70
@@ -191,10 +131,10 @@ leftmark
 rightmark
     dta d'    <    '*
 wavestr
-    dta d'TRI112  TRI224  TRI128  TRI256  TRI131  TRI156  '*
-    dta d'SIN112  SIN224  SIN128  SIN256  SIN131  SIN156  '*
+    dta d'TRI104  TRI208  TRI112  TRI224  TRI128  TRI256  TRI131  TRI156  '*
+    dta d'SIN104  SIN208  SIN112  SIN224  SIN128  SIN256  SIN131  SIN156  '*
 rangestr
-    dta d'224 240 256 '*
+    dta d'208 224 240 256 '*
 digits
     dta d'0123456789ABCDEF'*
 delay
@@ -208,11 +148,12 @@ main
     mva #$08 COLPM0 ; channel 1
     mva #$FF GRAFP0
     mva #$04 PRIOR
-    mva #5 wavei
+    mva #0 wavei
     mva #3 pulseperiod
     mva #2 pulsediff
     mva #4 lastkey
-    mva #0 range
+    mva #1 range
+    lda #0
     sta offset
     sta editoffset
     sta gy
