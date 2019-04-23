@@ -4,7 +4,7 @@
 index org *+1
 vars
 wavei org *+1
-range org *+1
+finelevels org *+1
 offset org *+1
 pulseperiod org *+1
 pulsediff org *+1
@@ -78,7 +78,7 @@ wavesin<<<$period>>>
     org [*+$FF]&$FF00
 lolo
     dta <lo208,<lo224,<lo240,<lo256
-rangecount equ *-lolo
+finelevelscount equ *-lolo
 lohi
     dta >lo208,>lo224,>lo240,>lo256
 hilo
@@ -107,16 +107,16 @@ dlist
     :11 dta $7
     dta $41,a(dlist)
 scr
-scr_wave equ *+11
-    dta d' waveform: tri      '
-scr_range equ *+11
-    dta d'    range: 240      '
-scr_offset equ *+11
-    dta d'   offset: 0        '
-scr_pulse equ *+11
-    dta d'    pulse: 003/005  '
-scr_pulsediff equ *+11
-    dta d'pulsediff: 02       '
+scr_wave equ *+12
+    dta d'  waveform: tri     '
+scr_finelevels equ *+12
+    dta d'finelevels: 14      '
+scr_offset equ *+12
+    dta d'    offset: 0       '
+scr_pulse equ *+12
+    dta d'     pulse: 003/005 '
+scr_pulsediff equ *+12
+    dta d' pulsediff: 02      '
     dta d' w/s - up/down      '
     dta d' a/d - change option'
     dta d' any key - reset    '
@@ -133,8 +133,8 @@ rightmark
 wavestr
     dta d'TRI104  TRI208  TRI112  TRI224  TRI128  TRI256  TRI131  TRI156  '*
     dta d'SIN104  SIN208  SIN112  SIN224  SIN128  SIN256  SIN131  SIN156  '*
-rangestr
-    dta d'208 224 240 256 '*
+finelevelsstr
+    dta d'13141516'*
 digits
     dta d'0123456789ABCDEF'*
 delay
@@ -152,7 +152,7 @@ main
     mva #3 pulseperiod
     mva #2 pulsediff
     mva #4 lastkey
-    mva #1 range
+    mva #1 finelevels
     lda #0
     sta offset
     sta editoffset
@@ -174,7 +174,7 @@ reset
     sta editptr
     mva wavehi,x ldwave+2
     sta editptr+1
-    ldy range
+    ldy finelevels
     mva lolo,y ldlo+1
     mva lohi,y ldlo+2
     mva hilo,y ldhi+1
@@ -275,18 +275,17 @@ draw_menu
     tax
     ldy #7
     mva:rpl wavestr,x- scr_wave,y-
-    ; range
+    ; finelevels
     ; -----
-    lda range
-    spl:lda #rangecount-1
-    cmp #rangecount
+    lda finelevels
+    spl:lda #finelevelscount-1
+    cmp #finelevelscount
     scc:lda #0
-    sta range
-    :2 asl @
-    add #3
+    sta finelevels
+    :1 asl @
     tax
-    ldy #3
-    mva:rpl rangestr,x- scr_range,y-
+    mva finelevelsstr,x scr_finelevels
+    mva finelevelsstr+1,x scr_finelevels+1
     ; offset
     ; ------
     lda offset
@@ -355,8 +354,8 @@ draw_menu
     ldx gy
     mva leftmark+4,x scr_wave-1
     mva rightmark+4,x scr_wave+7
-    mva leftmark+3,x scr_range-1
-    mva rightmark+3,x scr_range+7
+    mva leftmark+3,x scr_finelevels-1
+    mva rightmark+3,x scr_finelevels+7
     mva leftmark+2,x scr_offset-1
     mva rightmark+2,x scr_offset+7
     mva leftmark+1,x scr_pulse-1
