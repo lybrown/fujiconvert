@@ -366,13 +366,13 @@ draw_menu
 
 div
     stx d
-    ldx #0
+    ldx #$FF
+    sec
 divloop
-    sta rem
-    sub d
-    bcc divdone
     inx
-    jmp divloop
+    sta rem
+    sbc d
+    bcs divloop
 divdone
     lda rem
     rts
