@@ -526,7 +526,7 @@ keydown
     ; <<<$media>>>
 >>> if ($ram) {
 prevbank
-    :3 dec bank
+    :4 dec bank
 nextbank
     ldx bank ; 3 cycles
     lda banks,x ; 4 cycles
@@ -646,7 +646,7 @@ pauseplay2
 
 >>> if ($pcm44) {
 ;========================================
-; PCM4+4 hardware/Altirra-3.10-test27 and prior toggle
+; PCM4+4 linear/non-linear mixing toggle
 ;========================================
 toggle
     lda #1
@@ -676,11 +676,12 @@ setpulse
     sta AUDF3+$10
 >>> }
     lda pindex
-    bne altirra
+    bne showlinear
+shownonlinear
     mva #$F COLBK
     mva #$0 COLPM0
     rts
-altirra
+showlinear
     mva #$0 COLBK
     mva #$F COLPM0
     rts

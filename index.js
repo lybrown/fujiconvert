@@ -74,6 +74,8 @@ function formElements() {
     "method", "channels", "region", "frequency", "resampling_window",
     "media",
     "maxsize",
+    "finelevels",
+    "dc",
     "dither",
     "car", "raw",
     "gain", "speed", "offset", "duration", "title", "artist",
@@ -107,6 +109,10 @@ function writeLocalStorage() {
   for (let i = 0; i < elements.length; ++i) {
     localStorage.setItem(elements[i], getElement(form[elements[i]]));
   }
+}
+function restoreDefaults() {
+  localStorage.clear();
+  location.reload();
 }
 function get_player_name(settings) {
   return "player-" +
@@ -553,7 +559,7 @@ async function resample(inbuf, settings, progress) {
   let inrate = inbuf.sampleRate;
   let outrate = global.outrate = settings.freq;
   // Skip resample if input and output sample rates are the same
-  if (inrate == outrate) {
+  if (Math.abs(inrate - outrate) < 1) {
     progress.done();
     convert(inbuf, settings);
   } else {
@@ -738,23 +744,31 @@ function convert(renderedBuffer, settings) {
   }
 }
 function get_map_sample(max, settings) {
-  return settings.method == "pcm4+4" ?
-    settings.dither ? function (sample) {
-      let dither = Math.random()-0.5;
-      let samp = (sample * (256-16) + 256-16 + dither) >> 1;
-      return clamp(samp + 1 + (samp / 15 | 0), 0, 255);
+  if (settings.method == "pcm4+4") {
+    const finelevels = parseInt(settings.finelevels);
+    const dc = parseInt(settings.dc);
+    const levels = finelevels*16;
+    const adjust = 16-finelevels;
+    const bump = adjust ? 1 : 0;
+    return settings.dither ? function (sample) {
+      let dither = Math.random()>0.5;
+      let samp = ((sample*levels + levels) >> 1) + dc + dither;
+      return clamp(samp + bump + adjust*(samp / finelevels | 0), 0, 255);
     } : function (sample) {
-      let samp = (sample * (256-16) + 256-16) >> 1;
-      return clamp(samp + 1 + (samp / 15 | 0), 0, 255);
-    } : 
-    settings.dither ? function(sample) {
-      let dither = Math.random()-0.5;
-      let samp = (sample * (max+1) + (max+1) + dither) >> 1;
+      let samp = ((sample*levels + levels) >> 1) + dc;
+      return clamp(samp + bump + adjust*(samp / finelevels | 0), 0, 255);
+    };
+  } else {
+    const levels = max+1;
+    return settings.dither ? function(sample) {
+      let dither = Math.random()>0.5;
+      let samp = ((sample*levels + levels) >> 1) + dither;
       return clamp(samp, 0, max);
     } : function(sample) {
-      let samp = (sample * (max+1) + (max+1)) >> 1;
+      let samp = ((sample*levels + levels) >> 1);
       return clamp(samp, 0, max);
     };
+  }
 }
 function convertIDE(renderedBuffer, settings) {
   let method = [settings.method, settings.channels,
@@ -1089,6 +1103,8 @@ function init() {
     addEventListener("change", readSingleFile);
   document.getElementById("settings").
     addEventListener("change", getSettings);
+  document.getElementById("restoreDefaults").
+    addEventListener("click", restoreDefaults);
   document.getElementById("version").
     innerText = version;
   getSettings();
