@@ -1,6 +1,6 @@
 // vim: ts=2:sts=2:sw=2:et
 "use strict";
-let version = "0.3-test1";
+let version = "0.3";
 let global = {};
 function setElement(element, value) {
   if (element[0] && element[0].type == "radio") {
@@ -77,7 +77,7 @@ function formElements() {
     "finelevels",
     "dc",
     "dither",
-    "car", "raw",
+    "cart_type", "wav",
     "gain", "speed", "offset", "duration", "title", "artist",
   ];
 }
@@ -88,7 +88,12 @@ function readLocalStorage() {
   let form = document.getElementById("settings");
   let elements = formElements();
   for (let i = 0; i < elements.length; ++i) {
-    setElement(form[elements[i]], localStorage.getItem(elements[i]));
+    if (form[elements[i]]) {
+      setElement(form[elements[i]], localStorage.getItem(elements[i]));
+    } else {
+      // Remove old or unknown settings
+      localStorage.removeItem(elements[i]);
+    }
   }
   if (!form.gain.value) {
     form.gain.value = 1;
@@ -220,8 +225,8 @@ function getSettings() {
   settings.maxbytes = maxbytes[settings.maxsize] || (4<<20);
 
   // Use .car if neither .car or .raw are selected
-  if (!settings.car && !settings.raw) {
-    settings.car = true;
+  if (!settings.cart_type) {
+    settings.cart_type = "car";
   }
 
   return settings;
@@ -940,11 +945,10 @@ function convertSegments(renderedBuffer, settings) {
         bin = bin.slice(0, size); // XXX Should never trigger if limiter in loop() is working
       }
       let files = [];
-      if (settings.car) {
+      if (settings.cart_type == "car") {
         let car = makecar(type, bin);
         files.push(car, ".car");
-      }
-      if (settings.raw) {
+      } else {
         files.push(bin, ".raw");
       }
       zip_and_offer(files, settings);
@@ -1034,11 +1038,11 @@ function zip_and_offer(files, settings) {
       delay(0);
   }).then(function (blob) {
     bar("zipBar", 1);
-    offerDownload(zipname, blob);
+    offerDownload(zipname, blob, settings);
   });
 }
 
-function offerDownload(name, blob) {
+function offerDownload(name, blob, settings) {
   let element = document.getElementById("download");
   element.innerText = name;
   element.download = name;
@@ -1049,7 +1053,9 @@ function offerDownload(name, blob) {
 
   document.getElementById("controls").style.visibility = "visible";
 
-  setTimeout(offerWave, 0);
+  if (settings.wav) {
+    setTimeout(offerWave, 0);
+  }
 }
 
 function audioBufferToWaveBlob(audioBuffer) {
