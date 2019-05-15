@@ -11,6 +11,24 @@ sub usage {
     die "Usage: obx2json [player.obx]+\n";
 }
 
+my %wanted = map {$_=>1} qw(
+    cartstart
+    continue
+    endhi
+    endlo
+    fast_cycles
+    initbank
+    main
+    pages
+    prepnextbank
+    quiet
+    relocated_start
+    scr
+    scrlen
+    slow_cycles
+    window
+);
+
 sub parse_labels {
     my ($file) = @_;
     open my $fh, $file or die "ERROR: Cannot open $file: $!\n";
@@ -26,10 +44,7 @@ sub parse_labels {
         if (/^ +(\S+)\s+(\S+)/) {
             my $value = hex($1);
             my $name = $2;
-            # Exclude hardware labels
-            next if $value >= 0xD000 and $value <= 0xD7FF;
-            # Exclude nops
-            next if $name =~ /nop/i;
+            next if !$wanted{lc $name};
             $labels{lc $name} = $value;
         }
     }

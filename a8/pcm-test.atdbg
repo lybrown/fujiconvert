@@ -1,0 +1,3 @@
+.unloadsym 1
+.unloadsym 6
+.loadsym pcm-test.lab
