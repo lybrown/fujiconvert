@@ -80,7 +80,7 @@ function wavToBuffer(wav, context) {
       for (let i = 0; i < framecount; ++i, x += wav.blockAlign) {
         // Shift out high 8 bits then shift back with sign extension.
         // Assumes 32-bit bitops.
-        ch[i] = (view.getUInt32(x, LE) << 8 >> 8) / (1<<23)
+        ch[i] = (view.getUint32(x, LE) << 8 >> 8) / (1<<23)
       }
     } else if (wav.bitsPerSample == 32) {
       for (let i = 0; i < framecount; ++i, x += wav.blockAlign) {

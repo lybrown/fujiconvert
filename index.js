@@ -433,6 +433,39 @@ function get_window_width(settings) {
     default: return 1;
   }
 }
+
+function pdmToBuffer(pdm, context, stereo, region) {
+  // Convert PCM data to AudioBuffer
+  let numChannels = stereo ? 2 : 1;
+  let abuf = new Uint8Array(pdm);
+  let framecount = abuf.length / numChannels;
+  let cycles = {
+    ntsc: 262*105*60,
+    pal: 312*105*50,
+  };
+  let frequency = cycles[region] / 37;
+  let buf = context.createBuffer(numChannels, framecount, frequency);
+  let ch0 = buf.getChannelData(0);
+  let ch1 = stereo ? buf.getChannelData(1) : null;
+  for (let i = 0, x = 0; i < framecount;) {
+    if (stereo && x&1) {
+      ch1[i] = abuf[x] / 128 - 255/256;
+      ++i;
+    } else {
+      ch0[i] = abuf[x] / 128 - 255/256;
+      if (!stereo) ++i;
+    }
+    if ((x&0x1FF) == 0x1FE) {
+      x -= 0x1FD;
+    } else if ((x&0x1FF) == 0x1FF) {
+      x += 1;
+    } else {
+      x += 2;
+    }
+  }
+  return buf;
+}
+
 function decode(contents, settings, progress) {
 
   // Create OfflineAudioContext
@@ -445,6 +478,14 @@ function decode(contents, settings, progress) {
   let done = function(buffer) {
     progress.done();
     mix_and_resample(buffer, context, settings);
+  }
+
+  if (settings.filename.match(/\.pdm$/i)) {
+    let stereo = !!settings.filename.match(/stereo/i);
+    let region = settings.region;
+    let buf = pdmToBuffer(contents, context, stereo, region);
+    done(buf);
+    return;
   }
 
   try {
