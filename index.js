@@ -181,7 +181,7 @@ function getSettings() {
 
   // Constraints
   if (settings.media == "ide") {
-    settings.method = "pcm4+4";
+    settings.method = "pdm";
     if (settings.channels == "stereo") {
       settings.frequency = "22kHz";
     } else {
@@ -348,7 +348,7 @@ function getMediaCapacity(settings) {
 }
 function getBytesPerFrame(settings) {
   let stereo = settings.channels == "stereo";
-  let fourbit = settings.method == "pcm4";
+  let fourbit = settings.method == "pcm";
   return fourbit ?
     stereo ? 1 : 0.5 :
     stereo ? 2 : 1;
@@ -435,7 +435,7 @@ function get_window_width(settings) {
 }
 
 function pdmToBuffer(pdm, context, stereo, region) {
-  // Convert PCM data to AudioBuffer
+  // Convert PDM data to AudioBuffer
   let numChannels = stereo ? 2 : 1;
   let abuf = new Uint8Array(pdm);
   let framecount = abuf.length / numChannels;
@@ -646,7 +646,7 @@ function splash(settings, labels) {
   }
   let method = [settings.method, settings.channels,
     (settings.freq | 0)+"Hz", settings.media, settings.region].join(" ");
-  settings.methodStr = method;
+  settings.methodStr = method.replace(/^pdm/, "pdm" + settings.finelevels);
   text = text + trunc(" Method: " + method, 40);
   console.log("framecount: " + settings.framecount);
   text = text + trunc(" Duration: " +
@@ -658,10 +658,10 @@ function splash(settings, labels) {
     text = text + trunc(" L - Toggle loop/stop", 40);
   }
   text = text + trunc("", 40);
-  if (settings.method == "pcm4+4" || settings.media != "emulator") {
+  if (settings.method == "pdm" || settings.media != "emulator") {
     text = text + trunc(" Keys during playback:", 40);
   }
-  if (settings.method == "pcm4+4") {
+  if (settings.method == "pdm") {
     text = text + trunc(" A - Toggle linear/non-linear mixing", 40);
   }
   if (settings.media != "emulator") {
@@ -790,7 +790,7 @@ function convert(renderedBuffer, settings) {
   }
 }
 function get_map_sample(max, settings) {
-  if (settings.method == "pcm4+4") {
+  if (settings.method == "pdm") {
     const finelevels = parseInt(settings.finelevels);
     const dc = parseInt(settings.dc);
     const levels = finelevels*16;
@@ -819,7 +819,7 @@ function get_map_sample(max, settings) {
 function convertIDE(renderedBuffer, settings) {
   let method = [settings.method, settings.channels,
     (settings.freq | 0)+"Hz", settings.media, settings.region].join(" ");
-  settings.methodStr = method;
+  settings.methodStr = method.replace(/^pdm/, "pdm" + settings.finelevels);
   let stereo = settings.channels == "stereo";
   let data = renderedBuffer.getChannelData(0);
   let data2 = stereo ? renderedBuffer.getChannelData(1) : undefined;
@@ -833,7 +833,7 @@ function convertIDE(renderedBuffer, settings) {
   let maxbytes = settings.maxbytes;
   let maxframes = Math.min(
     (stereo ? maxbytes >> 1 : maxbytes) *
-    (settings.method == "pcm4" ? 2 : 1),
+    (settings.method == "pcm" ? 2 : 1),
     data.length);
   console.log("maxbytes: " + maxbytes + " maxframes: " + maxframes +
     " data.length: " + data.length);
@@ -999,8 +999,8 @@ function convertSegments(renderedBuffer, settings) {
   };
   let max =
     settings.method == "pwm" ? Math.min(settings.period-5, 101) :
-    settings.method == "pcm4" ? 15 :
-    settings.method == "pcm4+4" ? 239 :
+    settings.method == "pcm" ? 15 :
+    settings.method == "pdm" ? 255 :
     255;
   let map_sample = get_map_sample(max, settings);
   let maxbytes = Math.min(
@@ -1009,7 +1009,7 @@ function convertSegments(renderedBuffer, settings) {
     settings.maxbytes);
   let maxframes = Math.min(
     (stereo ? maxbytes >> 1 : maxbytes) *
-    (settings.method == "pcm4" ? 2 : 1),
+    (settings.method == "pcm" ? 2 : 1),
     data.length);
   let progress = progressbar("convertBar");
   progress.init(maxframes);
@@ -1019,7 +1019,7 @@ function convertSegments(renderedBuffer, settings) {
     let k; // page offset
     let l; // destination index
     let part = new Uint8Array(buflen);
-    if (settings.method == "pcm4") {
+    if (settings.method == "pcm") {
       for (k = 0; k < 0x100; ++k) {
         for (l = k; l < buflen; l+=0x100, ++i) {
           if (stereo) {

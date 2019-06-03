@@ -5,8 +5,8 @@ ramdetect
 
 lo
 hi
-  PCM4+4
-  PCM4
+  PDM
+  PCM
 
 splash
 
@@ -70,7 +70,7 @@ Covox
         store sample
         sync
 
-PCM4+4
+PDM
     Mono
         load sample
         load hi
@@ -91,7 +91,7 @@ PCM4+4
         store lo
         sync
 
-PCM4
+PCM
     Mono
         load sample
         load hi

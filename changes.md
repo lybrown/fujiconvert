@@ -42,10 +42,10 @@ First release
 0.3
 ---
 
-* [PCM4+4] Improved sound quality by restricting fine levels to values 1-14
-* [PCM4+4] Changed "A" key to toggle between settings optimized for
+* [PDM] Improved sound quality by restricting fine levels to values 1-14
+* [PDM] Changed "A" key to toggle between settings optimized for
   linear/non-linear mixing (black background/white background)
-* [PCM4+4] Improved sound quality at very low volumes by adding small DC offset
+* [PDM] Improved sound quality at very low volumes by adding small DC offset
   so that waveforms are centered in the fine level range. This avoids pops
   associated with coarse level transitions as long as the amplitude is below
   1/16 of the full the dynamic range

@@ -25,14 +25,14 @@ relocated_start
 >>> } else {
     org $2000
 >>> }
->>> if ($pcm44) {
+>>> if ($pdm) {
 lo
     ert <*!=0
     :256 dta $A0|[#&$F]
 hi
     ert <*!=0
     :256 dta $10|[#>>4]
->>> } elsif ($pcm4) {
+>>> } elsif ($pcm) {
 lo
     ert <*!=0
     :256 dta $10|[#&$F]
@@ -181,7 +181,7 @@ silence
     rts
 
 initsound
->>> if ($pcm44) {
+>>> if ($pdm) {
     ; 1.79Mhz for channel 1
 FAST1 equ 1<<6
     ; 1.79Mhz for channel 3
@@ -254,9 +254,9 @@ main
 >>>   $hpos = 1 if $covox and $period >= 35;
 >>>   # Always time if mono and period is >= 35
 >>>   $hpos = 1 if not $stereo and $period >= 35;
->>>   # Except PCM4+4 stereo when period <= 52
->>>   $hpos = 0 if $stereo and $pcm44 and $period <= 52;
->>>   if ($pcm44t) {
+>>>   # Except PDM stereo when period <= 52
+>>>   $hpos = 0 if $stereo and $pdm and $period <= 52;
+>>>   if ($pdmt) {
     ldy page ; 3 cycles
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     lda hi,x ; 4 cycles
@@ -278,7 +278,7 @@ main
 >>>       }
 >>>     }
 >>>     return (23 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
->>>   } elsif ($pcm44) {
+>>>   } elsif ($pdm) {
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     mva lo,x AUDC1 ; 8 cycles
     mva hi,x AUDC3 ; 8 cycles
@@ -330,7 +330,7 @@ main
 >>>       }
 >>>     }
 >>>     return (8 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
->>>   } elsif ($pcm4) {
+>>>   } elsif ($pcm) {
 >>>     $maxhalf = 7;
 >>>     if ($stereo) {
     ldx <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
@@ -371,7 +371,7 @@ continue ; called by loader
     add #$80
     sta HPOSP3
     inx:stx bank
->>>   if ($pcm44) {
+>>>   if ($pdm) {
     mva #[FAST1|FAST3|HI13] AUDCTL
 ;>>>     if ($stereo) {
 ;    mva #[FAST1|FAST3|HI13] AUDCTL+$10
@@ -405,11 +405,11 @@ bank equ $80
 
 play0
     ldy #0 ; 2 cycles
->>> if ($pcm44t) {
+>>> if ($pdmt) {
     sty page ; 3 cycles
 >>> }
 play
->>> $pages_per_frame = ($stereo and ($pcm44 or $pwm or $covox)) ? 2 : 1;
+>>> $pages_per_frame = ($stereo and ($pdm or $pwm or $covox)) ? 2 : 1;
 >>> $frames = $pages / $pages_per_frame;
 >>> for ($page = $frame = 0; $page < $pages; $page += $pages_per_frame, ++$frame) {
     ; frame <<<$frame>>> page <<<$page>>>
@@ -458,7 +458,7 @@ detectkeyevent
     bne keyevent ; 2 cycles
 >>>     $cycles += 8;
 >>>   } elsif ($frame == $frames - 1) {
->>>     if ($pcm44t) {
+>>>     if ($pdmt) {
     inc page ; 5 cycles
 >>>       $cycles += 5;
 >>>     } else {
@@ -473,7 +473,7 @@ branch
     jmp play ; 3 cycles
 >>>     next;
 >>>   }
->>>   if ($period == 52 && ($frame&1) == 0 && not ($mono and $pcm4)) {
+>>>   if ($period == 52 && ($frame&1) == 0 && not ($mono and $pcm)) {
 >>>     --$cycles;
 >>>   }
 >>>   nop($period - $cycles);
@@ -500,7 +500,7 @@ keydown
     mva #{bne} detectkeyevent
     mva #[keyup-[detectkeyevent+2]] detectkeyevent+1
     lda KBCODE
->>> if ($pcm44) {
+>>> if ($pdm) {
     cmp #63 ; 'A'
     sne:jmp toggle
 >>> }
@@ -644,9 +644,9 @@ pauseplay2
     jmp donekey
 
 
->>> if ($pcm44) {
+>>> if ($pdm) {
 ;========================================
-; PCM4+4 linear/non-linear mixing toggle
+; PDM linear/non-linear mixing toggle
 ;========================================
 toggle
     lda #1

@@ -17,7 +17,7 @@ my %media = (
     emulator => {window => '$4000', pages => 128},
 );
 
-my @methods = qw(pcm4+4 pcm4 pwm covox);
+my @methods = qw(pdm pcm pwm covox);
 
 sub usage {
     die "Usage: enumerate [-media X] [-method X] [-channels X] [-period X]\n";
@@ -58,7 +58,7 @@ sub main {
                     open my $fh, ">$fn" or die "ERROR: Cannot open $fn: $!\n";
                     my $methodmod = $method; $methodmod =~ s/\+//;
                     print $fh "\$media='$media'; \$$media=1; \$cart=$cart; \$$methodmod=1; \$$channels=1; \$period=$period;";
-                    #print $fh "\$pcm44t = \$pcm44;\n";
+                    #print $fh "\$pdmt = \$pdm;\n";
                     for my $var (sort keys %{$media{$media}}) {
                         my $val = $media{$media}{$var};
                         if ($val =~ /\$/) {
