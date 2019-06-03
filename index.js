@@ -449,10 +449,10 @@ function pdmToBuffer(pdm, context, stereo, region) {
   let ch1 = stereo ? buf.getChannelData(1) : null;
   for (let i = 0, x = 0; i < framecount;) {
     if (stereo && x&1) {
-      ch1[i] = abuf[x] / 128 - 255/256;
+      ch1[i] = abuf[x] / 127.5 - 1;
       ++i;
     } else {
-      ch0[i] = abuf[x] / 128 - 255/256;
+      ch0[i] = abuf[x] / 127.5 - 1;
       if (!stereo) ++i;
     }
     if ((x&0x1FF) == 0x1FE) {

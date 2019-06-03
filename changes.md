@@ -49,6 +49,7 @@ First release
   so that waveforms are centered in the fine level range. This avoids pops
   associated with coarse level transitions as long as the amplitude is below
   1/16 of the full the dynamic range
+* [PDM] Added option to read existing .pdm files for reconversion
 * [PWM] Fixed pops by minimizing sample rate jitter
 * [resampling] Improved resampling performance by precomputing coefficients
 * [resampling] Moved resampling to WebWorker threads. Stereo channels are now
