@@ -76,7 +76,7 @@ function formElements() {
     "maxsize",
     "finelevels",
     "dc",
-    "dither",
+    "dither", "autogain",
     "cart_type", "wav",
     "gain", "speed", "offset", "duration", "title", "artist",
   ];
@@ -530,6 +530,22 @@ function mix_and_resample(buffer, context, settings) {
   resample(mixbuf, settings, progress.sub(0.8));
 };
 
+function autogain(buf) {
+  let min = 1, max = -1;
+  for (let i = 0; i < buf.numberOfChannels; ++i) {
+    let data = buf.getChannelData(i);
+    for (let j = 0; j < data.length; ++j) {
+      if (data[j] < min) {
+        min = data[j];
+      } else if (data[j] > max) {
+        max = data[j];
+      }
+    }
+  }
+  let gain = 1 / Math.max(-min, max);
+  return gain;
+}
+
 function mix(inbuf, settings) {
   // Mix
   let outchannels = settings.channels == "stereo" ? 2 : 1;
@@ -554,6 +570,10 @@ function mix(inbuf, settings) {
     let outch = outbuf.getChannelData(0);
     inchs[0].forEach((v, i) => outch[i] = v + inchs[1][i]);
     gain *= 0.5;
+  }
+  if (settings.autogain) {
+    settings.gain = gain = autogain(outbuf);
+    console.log("Auto-gain: " + gain);
   }
   // Apply gain
   for (let i = 0; i < outchannels; ++i) {

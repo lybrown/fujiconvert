@@ -59,6 +59,8 @@ First release
   resampling
 * [resampling] Skip resampling if WAV sample rate approximately equals (+/-1Hz)
   Constrained Setting "freq"
+* [mixing] Added auto-gain option to set gain to largest possible value that
+  results in no clipping
 * [conversion] Dramatically improved audio-to-Atari-media conversion
   performance
 * [The!Cart] Disable The!Cart when OPTION is pressed during power up
