@@ -799,10 +799,10 @@ function get_map_sample(max, settings) {
     return settings.dither ? function (sample) {
       let dither = Math.random()>0.5;
       let samp = ((sample*levels + levels) >> 1) + dc + dither;
-      return clamp(samp + bump + adjust*(samp / finelevels | 0), 0, 255);
+      return clamp(samp + bump + adjust*(samp / finelevels | 0), bump, 255);
     } : function (sample) {
       let samp = ((sample*levels + levels) >> 1) + dc;
-      return clamp(samp + bump + adjust*(samp / finelevels | 0), 0, 255);
+      return clamp(samp + bump + adjust*(samp / finelevels | 0), bump, 255);
     };
   } else {
     const levels = max+1;
