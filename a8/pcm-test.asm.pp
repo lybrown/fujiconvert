@@ -21,43 +21,33 @@ editdelta org *+1
 editoffset org *+1
 
     org $2000
-lo208
+min_finelevel equ 4
+max_finelevel equ 16
+finelevelscount equ max_finelevel-min_finelevel+1
+audc_tables
+>>> for $finelevels (4 .. 16) {
+>>>   $range = $finelevels * 16;
+>>>   $pad = (256-$range) / 2;
+>>>   $adjust = 16-$finelevels;
+lo<<<$range>>>
     ert <*!=0
-    :24 dta $A0
-    :208 dta $A0|[[#+1+3*[#/13]]&$F]
-    :24 dta $AF
-hi208
+>>>   if ($pad) {
+    :<<<$pad>>> dta $A0
+>>>   }
+    :<<<$range>>> dta $A0|[[#+1+<<<$adjust>>>*[#/<<<$finelevels>>>]]&$F]
+>>>   if ($pad) {
+    :<<<$pad>>> dta $AF
+>>>   }
+hi<<<$range>>>
     ert <*!=0
-    :24 dta $10
-    :208 dta $10|[[#+1+3*[#/13]]>>4]
-    :24 dta $1F
-lo224
-    ert <*!=0
-    :16 dta $A0
-    :224 dta $A0|[[#+1+2*[#/14]]&$F]
-    :16 dta $AF
-hi224
-    ert <*!=0
-    :16 dta $10
-    :224 dta $10|[[#+1+2*[#/14]]>>4]
-    :16 dta $1F
-lo240
-    ert <*!=0
-    :8 dta $A0
-    :240 dta $A0|[[#+1+[#/15]]&$F]
-    :8 dta $AF
-hi240
-    ert <*!=0
-    :8 dta $10
-    :240 dta $10|[[#+1+[#/15]]>>4]
-    :8 dta $1F
-lo256
-    ert <*!=0
-    :256 dta $A0|[#&$F]
-hi256
-    ert <*!=0
-    :256 dta $10|[#>>4]
-
+>>>   if ($pad) {
+    :<<<$pad>>> dta $10
+>>>   }
+    :<<<$range>>> dta $10|[[#+1+<<<$adjust>>>*[#/<<<$finelevels>>>]]>>4]
+>>>   if ($pad) {
+    :<<<$pad>>> dta $1F
+>>>   }
+>>> }
     org [*+$FF]&$FF00
 >>> for $period (qw(104 208 112 224 120 240 128 256 131 156)) {
 wavetri<<<$period>>>
@@ -70,21 +60,12 @@ wavetri<<<$period>>>
     org [*+$FF]&$FF00
 wavesin<<<$period>>>
 >>>   for ($i = 0; $i < 256; ++$i) {
->>>     $s = int(sin($i / ($period/2) * 3.141592654) * 103.9 + 128);
+>>>     $s = int(sin($i / ($period/2) * 3.141592654) * 63 + 128);
     dta <<<$s>>>
 >>>   }
 >>> }
 
     org [*+$FF]&$FF00
-lolo
-    dta <lo208,<lo224,<lo240,<lo256
-finelevelscount equ *-lolo
-lohi
-    dta >lo208,>lo224,>lo240,>lo256
-hilo
-    dta <hi208,<hi224,<hi240,<hi256
-hihi
-    dta >hi208,>hi224,>hi240,>hi256
 wavelo
     dta <wavetri104,<wavetri208,<wavetri112,<wavetri224,<wavetri128,<wavetri256
     dta <wavetri131,<wavetri156
@@ -152,7 +133,7 @@ main
     mva #3 pulseperiod
     mva #2 pulsediff
     mva #4 lastkey
-    mva #1 finelevels
+    mva #14-min_finelevel finelevels
     lda #0
     sta offset
     sta editoffset
@@ -174,11 +155,14 @@ reset
     sta editptr
     mva wavehi,x ldwave+2
     sta editptr+1
-    ldy finelevels
-    mva lolo,y ldlo+1
-    mva lohi,y ldlo+2
-    mva hilo,y ldhi+1
-    mva hihi,y ldhi+2
+    lda finelevels
+    asl @
+    add >audc_tables
+    sta ldlo+2
+    adc #1
+    sta ldhi+2
+    mva #0 ldlo+1
+    sta ldhi+1
     mva offset index
 
     lda:req VCOUNT
@@ -282,10 +266,12 @@ draw_menu
     cmp #finelevelscount
     scc:lda #0
     sta finelevels
-    :1 asl @
+    add #min_finelevel
+    ldx #10
+    jsr div
+    mvy digits,x scr_finelevels
     tax
-    mva finelevelsstr,x scr_finelevels
-    mva finelevelsstr+1,x scr_finelevels+1
+    mvy digits,x scr_finelevels+1
     ; offset
     ; ------
     lda offset
@@ -387,6 +373,10 @@ HI13 equ 1<<2
     ; 15Khz
 KHZ15 equ 1<<0
     mva #0 SKCTL
+    ; Optimal delay for minimizing pops for finelevels=14, pulse=3/5 upon
+    ; Altirra XEX boot, but not guaranteed after first user input
+    ;:18 inc WSYNC
+    :4 inc WSYNC
     mva #3 SKCTL
     mva #[FAST1|FAST3|HI13] AUDCTL
     ; Set up 1/16 dutycycle HiPass on 1+3
