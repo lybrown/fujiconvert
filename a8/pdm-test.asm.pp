@@ -20,6 +20,7 @@ editptr org *+2
 editdelta org *+1
 editoffset org *+1
 waveendval org *+1
+mute org *+1
 
     org $2000
 min_finelevel equ 1
@@ -68,6 +69,8 @@ wavesin<<<$period>>>
     dta <<<$s>>>
 >>>   }
 >>> }
+wavemute
+    :256 dta $80
 
     org [*+$FF]&$FF00
 dlist
@@ -112,17 +115,12 @@ hotkeys
     icl 'keys.asm'
 key
     dta 0
-wavelo
-    dta <wavetri104,<wavetri208,<wavetri112,<wavetri224,<wavetri128,<wavetri256
-    dta <wavetri131,<wavetri156
-    dta <wavesin104,<wavesin208,<wavesin112,<wavesin224,<wavesin128,<wavesin256
-    dta <wavesin131,<wavesin156
-wavecount equ *-wavelo
 wavehi
     dta >wavetri104,>wavetri208,>wavetri112,>wavetri224,>wavetri128,>wavetri256
     dta >wavetri131,>wavetri156
     dta >wavesin104,>wavesin208,>wavesin112,>wavesin224,>wavesin128,>wavesin256
     dta >wavesin131,>wavesin156
+wavecount equ *-wavehi
 waveend
     :2 dta 103,207,8*14-1,16*14-1,$7F,$FF,130,155
 keyrepeattbl
@@ -167,6 +165,10 @@ reset
     mva #0 ldlo+1
     sta ldhi+1
     mva offset index
+
+    lda mute
+    and #1
+    seq:mva >wavemute ldwave+2
 
     lda:req VCOUNT
     jmp start
@@ -240,6 +242,8 @@ keydown
     sne:dec editdelta
     cmp #0  ; 'L'
     sne:inc editdelta
+    cmp #$25 ; 'M'
+    sne:inc mute
     ; cursor
     txa ; set N flag per X register
     spl:ldx #varcount-1
@@ -330,7 +334,7 @@ draw_menu
     ; editvalue
     ; -----------
     ldx wavei
-    mva wavelo,x ldwave+1
+    mva #0 ldwave+1
     sta editptr
     mva wavehi,x ldwave+2
     sta editptr+1
