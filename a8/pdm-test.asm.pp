@@ -19,31 +19,35 @@ lastkey org *+1
 editptr org *+2
 editdelta org *+1
 editoffset org *+1
+waveendval org *+1
 
     org $2000
-min_finelevel equ 4
+min_finelevel equ 1
 max_finelevel equ 16
 finelevelscount equ max_finelevel-min_finelevel+1
 audc_tables
->>> for $finelevels (4 .. 16) {
+>>> for $finelevels (1 .. 16) {
 >>>   $range = $finelevels * 16;
 >>>   $pad = (256-$range) / 2;
 >>>   $adjust = 16-$finelevels;
+>>>   #$bump = 16-$finelevels;
+>>>   $bump = $finelevels == 16 ? 0 : 1;
+>>>   #$bump = 0;
 lo<<<$range>>>
     ert <*!=0
 >>>   if ($pad) {
     :<<<$pad>>> dta $A0
 >>>   }
-    :<<<$range>>> dta $A0|[[#+1+<<<$adjust>>>*[#/<<<$finelevels>>>]]&$F]
+    :<<<$range>>> dta $A0|[[#+<<<$bump>>>+<<<$adjust>>>*[#/<<<$finelevels>>>]]&$F]
 >>>   if ($pad) {
-    :<<<$pad>>> dta $AF
+    :<<<$pad>>> dta $A0|<<<$finelevels-1+$bump>>>
 >>>   }
 hi<<<$range>>>
     ert <*!=0
 >>>   if ($pad) {
     :<<<$pad>>> dta $10
 >>>   }
-    :<<<$range>>> dta $10|[[#+1+<<<$adjust>>>*[#/<<<$finelevels>>>]]>>4]
+    :<<<$range>>> dta $10|[[#+<<<$bump>>>+<<<$adjust>>>*[#/<<<$finelevels>>>]]>>4]
 >>>   if ($pad) {
     :<<<$pad>>> dta $1F
 >>>   }
@@ -66,22 +70,6 @@ wavesin<<<$period>>>
 >>> }
 
     org [*+$FF]&$FF00
-wavelo
-    dta <wavetri104,<wavetri208,<wavetri112,<wavetri224,<wavetri128,<wavetri256
-    dta <wavetri131,<wavetri156
-    dta <wavesin104,<wavesin208,<wavesin112,<wavesin224,<wavesin128,<wavesin256
-    dta <wavesin131,<wavesin156
-wavecount equ *-wavelo
-wavehi
-    dta >wavetri104,>wavetri208,>wavetri112,>wavetri224,>wavetri128,>wavetri256
-    dta >wavetri131,>wavetri156
-    dta >wavesin104,>wavesin208,>wavesin112,>wavesin224,>wavesin128,>wavesin256
-    dta >wavesin131,>wavesin156
-waveend
-    :2 dta 207,207,16*14-1,16*14-1,$FF,$FF,130,155
-keyrepeattbl
-    :2 dta 14,14,11,11,9,9,19,16
-
 dlist
     :3 dta $70
     dta $47,a(scr)
@@ -105,8 +93,8 @@ scr_pulsediff equ *+12
 scr_editoffset equ *+6
 scr_editvalue equ *+17
     dta d'edit:     value:    '
-    dta d' i/k - up/down      '
-    dta d' j/l - left/right   '
+    dta d' i/k - value up/down'
+    dta d' j/l - pos up/down  '
 leftmark
     dta d'    >    '*
 rightmark
@@ -120,6 +108,26 @@ digits
     dta d'0123456789ABCDEF'*
 delay
     dta 8
+hotkeys
+    icl 'keys.asm'
+key
+    dta 0
+wavelo
+    dta <wavetri104,<wavetri208,<wavetri112,<wavetri224,<wavetri128,<wavetri256
+    dta <wavetri131,<wavetri156
+    dta <wavesin104,<wavesin208,<wavesin112,<wavesin224,<wavesin128,<wavesin256
+    dta <wavesin131,<wavesin156
+wavecount equ *-wavelo
+wavehi
+    dta >wavetri104,>wavetri208,>wavetri112,>wavetri224,>wavetri128,>wavetri256
+    dta >wavetri131,>wavetri156
+    dta >wavesin104,>wavesin208,>wavesin112,>wavesin224,>wavesin128,>wavesin256
+    dta >wavesin131,>wavesin156
+waveend
+    :2 dta 103,207,8*14-1,16*14-1,$7F,$FF,130,155
+keyrepeattbl
+    :2 dta 27,14,21,11,17,9,19,16
+
 
 main
     sei
@@ -147,14 +155,9 @@ reset
     jsr draw_menu
 
     ldx wavei
-    mva waveend,x cmpindex+1
     mva keyrepeattbl,x keyrepeat_count_first
     lsr @
     sta keyrepeat_count_again
-    mva wavelo,x ldwave+1
-    sta editptr
-    mva wavehi,x ldwave+2
-    sta editptr+1
     lda finelevels
     asl @
     add >audc_tables
@@ -220,6 +223,7 @@ keydown
     ldy editoffset
     ldx gy
     lda KBCODE
+    sta key
     cmp #46 ; 'W'
     sne:dex
     cmp #62 ; 'S'
@@ -229,21 +233,45 @@ keydown
     cmp #58 ; 'D'
     sne:inc vars,x
     cmp #13 ; 'I'
-    sne:inc editdelta
-    cmp #5  ; 'K'
-    sne:dec editdelta
-    cmp #1  ; 'J'
     sne:dey
-    cmp #0  ; 'L'
+    cmp #5  ; 'K'
     sne:iny
+    cmp #1  ; 'J'
+    sne:dec editdelta
+    cmp #0  ; 'L'
+    sne:inc editdelta
+    ; cursor
     txa ; set N flag per X register
     spl:ldx #varcount-1
     cpx #varcount
     scc:ldx #0
     stx gy
+    ; editoffset
+    cpy #$FF
+    sne:ldy waveendval
+    cpy waveendval
+    beq notover
+    scc:ldy #0
+notover
+    sty editoffset
+    ; edit
     lda editdelta
     add:sta (editptr),y
-    sty editoffset
+    ; hotkeys
+    bit key
+    bmi playhotkey
+    jmp reset
+
+playhotkey
+    lda key
+    and #$3F
+    tax
+    bvs sethotkey
+    :4 mva hotkeys+#*$40,x vars+1+#
+    jmp reset
+
+sethotkey
+    :4 mva vars+1+# hotkeys+#*$40,x
     jmp reset
 
 draw_menu
@@ -259,6 +287,11 @@ draw_menu
     tax
     ldy #7
     mva:rpl wavestr,x- scr_wave,y-
+    ldx wavei
+    mva waveend,x cmpindex+1
+    sta waveendval
+    cmp editoffset
+    scs:sta editoffset
     ; finelevels
     ; -----
     lda finelevels
@@ -296,6 +329,11 @@ draw_menu
     mvy digits,x scr_editoffset+2
     ; editvalue
     ; -----------
+    ldx wavei
+    mva wavelo,x ldwave+1
+    sta editptr
+    mva wavehi,x ldwave+2
+    sta editptr+1
     ldy editoffset
     lda (editptr),y
     ldx #16

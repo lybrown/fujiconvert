@@ -11,6 +11,7 @@ threads := 12
 det.run:
 det.obx: ramdetect.asm
 simple.run:
+pdm-test.obx: keys.asm
 
 out = > $@~ && mv $@~ $@
 
