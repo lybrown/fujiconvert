@@ -13,3 +13,9 @@ show: players.js
 
 server:
 	python -m SimpleHTTPServer
+
+files = index.html index.js jszip.min.js players.js \
+	progress.js readwav.js resample.js waveWorker.js
+bundle:
+	mkdir -p bundle
+	cp $(files) bundle
