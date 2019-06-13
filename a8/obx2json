@@ -27,6 +27,8 @@ my %wanted = map {$_=>1} qw(
     scrlen
     slow_cycles
     window
+    paudf1
+    paudf3
 );
 
 sub parse_labels {

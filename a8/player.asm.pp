@@ -378,8 +378,8 @@ continue ; called by loader
 ;>>>     }
     ;jsr setpulse
     ldx pindex
-    mva paudf3_main,x AUDF3
-    mva paudf1_main,x AUDF1
+    mva paudf3,x AUDF3
+    mva paudf1,x AUDF1
     sta STIMER
     sta AUDF3
 >>>   } elsif ($pwm) {
@@ -664,15 +664,11 @@ setpulse
     mva paudf3,x AUDF3
     mva paudf1,x AUDF1
     sta STIMER
-    ;jsr nop48
-    ;mva paudf1_main,x AUDF1
     sta AUDF3
 >>> if ($stereo) {
     mva paudf3,x AUDF3+$10
     mva paudf1,x AUDF1+$10
     sta STIMER+$10
-    ;jsr nop48
-    ;mva paudf1_main,x AUDF1+$10
     sta AUDF3+$10
 >>> }
     lda pindex
@@ -688,12 +684,8 @@ showlinear
 pindex
     dta 1
 paudf1
-    dta 2,3,155
-paudf3
-    dta 4,5,157
-paudf1_main
     dta 2,3
-paudf3_main
+paudf3
     dta 4,5
 >>> }
 

@@ -74,8 +74,7 @@ function formElements() {
     "method", "channels", "region", "frequency", "resampling_window",
     "media",
     "maxsize",
-    "finelevels",
-    "dc",
+    "finelevels", "dc", "linpulse", "nonlinpulse",
     "dither", "autogain",
     "cart_type", "wav",
     "gain", "speed", "offset", "duration", "title", "artist",
@@ -227,6 +226,21 @@ function getSettings() {
   // Use .car if neither .car or .raw are selected
   if (!settings.cart_type) {
     settings.cart_type = "car";
+  }
+
+  // Grey out cart types if not a cart
+  if (["ide", "emulator", "ram"].indexOf(settings.media) >= 0) {
+    document.getElementById("cart_type").style.visibility = "hidden";
+  } else {
+    document.getElementById("cart_type").style.visibility = "visible";
+  }
+
+  // Pulse
+  if (!settings.nonlinpulse || !settings.nonlinpulse.match(/^\d+\/\d+$/)) {
+    settings.nonlinpulse = "2/4";
+  }
+  if (!settings.linpulse || !settings.linpulse.match(/^\d+\/\d+$/)) {
+    settings.linpulse = "3/5";
   }
 
   return settings;
@@ -819,10 +833,12 @@ function get_map_sample(max, settings) {
     return settings.dither ? function (sample) {
       let dither = Math.random()>0.5;
       let samp = ((sample*levels + levels) >> 1) + dc + dither;
-      return clamp(samp + bump + adjust*(samp / finelevels | 0), bump, 255);
+      let mapped = samp + bump + adjust*(samp / finelevels | 0);
+      return clamp(mapped, bump, 255);
     } : function (sample) {
       let samp = ((sample*levels + levels) >> 1) + dc;
-      return clamp(samp + bump + adjust*(samp / finelevels | 0), bump, 255);
+      let mapped = samp + bump + adjust*(samp / finelevels | 0);
+      return clamp(mapped, bump, 255);
     };
   } else {
     const levels = max+1;
@@ -888,7 +904,6 @@ function convertSegments(renderedBuffer, settings) {
   if (!players[player_name]) {
     text("convertMessage", "ERROR: Unsupported player: " + player_name);
   }
-  let player_bin = players[player_name].player;
   let labels = players[player_name].labels;
   let cart = labels.cartstart ? 1 : 0;
   let stereo = settings.channels == "stereo";
@@ -903,6 +918,16 @@ function convertSegments(renderedBuffer, settings) {
   let done = function() {
     let player_b64 = players[player_name].player;
     let player_u8 = Uint8Array.from(atob(player_b64), c => c.charCodeAt(0))
+    let paudf_segment = [];
+    if (settings.method == "pdm") {
+      let nl = settings.nonlinpulse.split("/");
+      let l = settings.linpulse.split("/");
+      let paudf = [nl[0], l[0], nl[1], l[1]].map(x => parseInt(x));
+      paudf_segment = [...header(labels.paudf1, 4), paudf];
+      if (cart) {
+        player_u8.set(paudf, labels.paudf1 - labels.relocated_start);
+      }
+    }
     let shead = header(labels.scr, labels.scrlen);
     let stext = splash(settings, labels);
     if (settings.media == "emulator") {
@@ -918,6 +943,7 @@ function convertSegments(renderedBuffer, settings) {
       }
       let xex = concatenate(Uint8Array,
         player_u8, // player
+        paudf_segment, // patch paudf table
         shead, stext, // patch screen info
         ini(labels.main), // splash + setup
         ...pieces, // sound segments
@@ -937,6 +963,7 @@ function convertSegments(renderedBuffer, settings) {
       let endbank = parts.length;
       let xex = concatenate(Uint8Array,
         player_u8, // player
+        paudf_segment, // patch paudf table
         shead, stext, // patch screen info
         header(labels.endlo+1, 1), [endbank & 0xFF],
         header(labels.endhi+1, 1), [endbank >> 8],

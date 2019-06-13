@@ -43,16 +43,20 @@
     grid-template-rows: min-content auto;
     grid-template-areas:
         "settingsheader settingsheader"
-        "settingsright settingsleft";
+        "settings1 settings2"
+        "-- settingsfooter";
 }
 .settingsheader {
     grid-area: settingsheader;
 }
-.settingsleft {
-    grid-area: settingsleft;
+.settingsfooter {
+    grid-area: settingsfooter;
 }
-.settingsright {
-    grid-area: settingsright;
+.settings2 {
+    grid-area: settings2;
+}
+.settings1 {
+    grid-area: settings1;
 }
 .right {
     border-style: solid;
@@ -85,7 +89,7 @@
 
 <form action="" id="settings" class="settings">
 <h3 class="settingsheader">Settings</h3>
-<div class="settingsleft">
+<div class="settings2">
 <div>
     Playback Method:<br>
     <input type="radio" name="method" value="pdm" checked> PDM<br>
@@ -126,8 +130,8 @@
     <input type="radio" name="frequency" value="15kHz"> 15kHz<br>
     <input type="radio" name="frequency" value="8kHz"> 8kHz<br>
 </div>
-</div> <!-- settingsleft -->
-<div class="settingsright">
+</div> <!-- settings2 -->
+<div class="settings1">
 <div>
     Resampling Window:
     <select name="resampling_window">
@@ -138,7 +142,7 @@
     <option value="none">None</option>
     </select><br>
     Dither: <input type="checkbox" name="dither"><br>
-    Auto-gain: <input type="checkbox" name="autogain"><br>
+    Auto-gain: <input type="checkbox" name="autogain" checked><br>
     Gain: <input type="text" name="gain" value="1" size="10"><br>
     CPU Speed: <input type="text" name="speed" value="1" size="10"><br>
     Offset: <input type="text" name="offset" value="0" size="10"><br>
@@ -147,7 +151,7 @@
     Artist: <input type="text" name="artist" maxlength="40" value=""><br>
 </div>
 <div>
-    Max size:
+    Max Size:
     <select name="maxsize">
     <option value="16K"> 16K</option>
     <option value="80K"> 80K</option>
@@ -165,16 +169,12 @@
     </select>
 </div>
 <div>
-    PDM Fine Levels:
-    <select name="finelevels">
-    <option value="13"> 13</option>
-    <option value="14" selected> 14</option>
-    <option value="15"> 15</option>
-    <option value="16"> 16</option>
-    </select>
+    Generate .WAV Preview: <input type="checkbox" name="wav">
 </div>
+    <br>
+    PDM Settings:<br>
 <div>
-    PDM DC offset:
+    DC Offset:
     <select name="dc">
     <option value="7"> +7</option>
     <option value="6"> +6</option>
@@ -194,8 +194,27 @@
     </select>
 </div>
 <div>
-    Generate .WAV Preview: <input type="checkbox" name="wav">
+    Fine Levels:
+    <select name="finelevels">
+    <option value="2"> 2</option>
+    <option value="3"> 3</option>
+    <option value="4"> 4</option>
+    <option value="5"> 5</option>
+    <option value="6"> 6</option>
+    <option value="7"> 7</option>
+    <option value="8"> 8</option>
+    <option value="9"> 9</option>
+    <option value="10"> 10</option>
+    <option value="11"> 11</option>
+    <option value="12"> 12</option>
+    <option value="13"> 13</option>
+    <option value="14" selected> 14</option>
+    <option value="15"> 15</option>
+    <option value="16"> 16</option>
+    </select>
 </div>
+    Non-Linear Pulse: <input type="text" name="nonlinpulse" value="2/4" size="7"><br>
+    Linear Pulse: <input type="text" name="linpulse" value="3/5" size="7"><br>
 <br>
 <div>
     Output Media:<br>
@@ -208,14 +227,15 @@
     <input type="radio" name="media" value="megacart"> MegaCart<br>
     <input type="radio" name="media" value="xegs"> XEGS<br>
     <input type="radio" name="media" value="sic"> SIC!<br>
-<br>
-    Cart File Type:<br>
-    <input type="radio" name="cart_type" value="car" checked> .car<br>
-    <input type="radio" name="cart_type" value="raw"> .raw<br>
 </div>
-
-</div> <!-- settingsright -->
-<div>
+<br>
+<div id="cart_type">
+    Cart File Type:<br>
+    <input type="radio" name="cart_type" id="car" value="car" checked> .car<br>
+    <input type="radio" name="cart_type" id="raw" value="raw"> .raw<br>
+</div>
+</div> <!-- settings1 -->
+<div class="settingsfooter">
     <button id="restoreDefaults">Restore Defaults</button>
 </div>
 </form> <!-- settings -->
