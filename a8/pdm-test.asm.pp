@@ -148,6 +148,8 @@ main
     lda:rne VCOUNT
     mwa #dlist DLISTL
     mva #$22 DMACTL
+    mva #0 SKCTL
+    mva #3 SKCTL
 
 reset
     jsr draw_menu
@@ -414,12 +416,14 @@ FAST3 equ 1<<5
 HI13 equ 1<<2
     ; 15Khz
 KHZ15 equ 1<<0
-    mva #0 SKCTL
+    ; WARNING: Resetting POKEY here messes up keydown detection
+    ; Only visible in Altirra with "Full Raw Keyboard Scan" mode
+    ;mva #0 SKCTL
     ; Optimal delay for minimizing pops for finelevels=14, pulse=3/5 upon
     ; Altirra XEX boot, but not guaranteed after first user input
     ;:18 inc WSYNC
-    :4 inc WSYNC
-    mva #3 SKCTL
+    ;:4 inc WSYNC
+    ;mva #3 SKCTL
     mva #[FAST1|FAST3|HI13] AUDCTL
     ; Set up 1/16 dutycycle HiPass on 1+3
     ldx pulseperiod
