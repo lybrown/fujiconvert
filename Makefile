@@ -19,3 +19,5 @@ files = index.html index.js jszip.min.js players.js \
 bundle:
 	mkdir -p bundle
 	cp $(files) bundle
+
+.PHONY: bundle
