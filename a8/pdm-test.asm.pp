@@ -422,6 +422,10 @@ KHZ15 equ 1<<0
     ;:18 inc WSYNC
     ;:4 inc WSYNC
     ;mva #3 SKCTL
+    ;lda:rne VCOUNT
+    ;lda:req VCOUNT
+    ;lda:rne VCOUNT
+    ;lda:req VCOUNT
     mva #[FAST1|FAST3|HI13] AUDCTL
     ; Set up 1/16 dutycycle HiPass on 1+3
     ldx pulseperiod

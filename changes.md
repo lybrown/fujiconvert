@@ -42,28 +42,25 @@ First release
 0.3
 ---
 
-* [PDM] Improved sound quality by restricting fine levels to values 1-14
+* [PDM] Improved sound quality by restricting fine levels to values 1-X
 * [PDM] Changed "A" key to toggle between settings optimized for
   linear/non-linear mixing (black background/white background)
 * [PDM] Improved sound quality at very low volumes by adding small DC offset
   so that waveforms are centered in the fine level range. This avoids pops
-  associated with coarse level transitions as long as the amplitude is below
-  1/16 of the full the dynamic range
-* [PDM] Added option to read existing .pdm files for reconversion
+  associated with coarse level transitions.
+* [PDM] Added option to read old .pdm files for reconversion
 * [PWM] Fixed pops by minimizing sample rate jitter
 * [resampling] Improved resampling performance by precomputing coefficients
 * [resampling] Moved resampling to WebWorker threads. Stereo channels are now
   resampled in parallel threads
 * [resampling] Resampling effort changed to resampling window. Old "Ultra"
   setting is equivalent to resampling window of 1024. New 2048 option added.
-* [resampling] Added WAV file parser to bypass WebAudio's low-quality
-  resampling
-* [resampling] Skip resampling if WAV sample rate approximately equals (+/-1Hz)
-  Constrained Setting "freq"
+* [resampling] Added WAV file parser to avoid resampling done by WebAudio
+* [resampling] Skip resampling altogether if WAV sample rate approximately
+  equals (+/-1Hz) Constrained Setting "freq"
 * [mixing] Added auto-gain option to set gain to largest possible value that
   results in no clipping
-* [conversion] Dramatically improved audio-to-Atari-media conversion
-  performance
+* [conversion] Improved audio-to-Atari-media conversion performance
 * [The!Cart] Disable The!Cart when OPTION is pressed during power up
 * [The!Cart] Leave IRQs and NMIs enabled in splash screen
   http://atariage.com/forums/topic/279232-fujiconvert-01/page-7#entry4081580
