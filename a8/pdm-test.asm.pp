@@ -11,11 +11,9 @@ pulsediff org *+1
 varcount equ *-vars
 gy org *+1
 keyrepeat org *+1
-keyrepeat_count_first org *+1
-keyrepeat_count_again org *+1
 rem org *+1
 d org *+1
-lastkey org *+1
+lastskstat org *+1
 editptr org *+2
 editdelta org *+1
 editoffset org *+1
@@ -54,7 +52,8 @@ hi<<<$range>>>
 >>>   }
 >>> }
     org [*+$FF]&$FF00
->>> for $period (qw(104 208 112 224 120 240 128 256 131 156)) {
+>>> @periods =  qw(104 208 112 224 120 240 128 256 131 156);
+>>> for $period (@periods) {
 wavetri<<<$period>>>
 >>>   $pad = (256-$period/2)>>1;
 >>>   for ($i = 0; $i < 256; ++$i) {
@@ -103,8 +102,8 @@ leftmark
 rightmark
     dta d'    <    '*
 wavestr
-    dta d'TRI104  TRI208  TRI112  TRI224  TRI128  TRI256  TRI131  TRI156  '*
-    dta d'SIN104  SIN208  SIN112  SIN224  SIN128  SIN256  SIN131  SIN156  '*
+>>> print "    dta d'TRI$_  '*\n" for @periods;
+>>> print "    dta d'SIN$_  '*\n" for @periods;
 finelevelsstr
     dta d'13141516'*
 digits
@@ -115,16 +114,18 @@ hotkeys
     icl 'keys.asm'
 key
     dta 0
+lastkey
+    dta 0
 wavehi
-    dta >wavetri104,>wavetri208,>wavetri112,>wavetri224,>wavetri128,>wavetri256
-    dta >wavetri131,>wavetri156
-    dta >wavesin104,>wavesin208,>wavesin112,>wavesin224,>wavesin128,>wavesin256
-    dta >wavesin131,>wavesin156
+>>> print "    dta >wavetri$_\n" for @periods;
+>>> print "    dta >wavesin$_\n" for @periods;
 wavecount equ *-wavehi
 waveend
-    :2 dta 103,207,8*14-1,16*14-1,$7F,$FF,130,155
+>>> printf "    dta %d\n", $_-1 for (@periods) x 2;
 keyrepeattbl
-    :2 dta 27,14,21,11,17,9,19,16
+>>> printf "    dta %d\n", 1500/$_ for (@periods) x 2;
+keyrepeatfirsttbl
+>>> printf "    dta %d\n", 3500/$_ for (@periods) x 2;
 
 
 main
@@ -138,7 +139,7 @@ main
     mva #0 wavei
     mva #3 pulseperiod
     mva #2 pulsediff
-    mva #4 lastkey
+    mva #4 lastskstat
     mva #14-min_finelevel finelevels
     lda #0
     sta offset
@@ -155,9 +156,11 @@ reset
     jsr draw_menu
 
     ldx wavei
-    mva keyrepeattbl,x keyrepeat_count_first
-    lsr @
-    sta keyrepeat_count_again
+    lda keyrepeatfirsttbl,x
+    ldy key
+    cpy:sty lastkey
+    sne:lda keyrepeattbl,x
+    sta keyrepeat
     lda finelevels
     asl @
     add >audc_tables
@@ -203,7 +206,7 @@ cont
     sty index
     lda SKSTAT
     and #4
-    cmp:sta lastkey
+    cmp:sta lastskstat
     bcs play
     jmp keydown
 loop
@@ -215,14 +218,9 @@ loop
 ; -------v--------v--------v-----d------------vr-------vr----u---v-------v
 
 virtualkeyup
-    mva #4 lastkey
+    mva #4 lastskstat
     jmp play
 keydown
-    lda keyrepeat_count_first
-    ldy index
-    cpy #1
-    sne:lda keyrepeat_count_again
-    sta keyrepeat
     mva #0 editdelta
     ldy editoffset
     ldx gy
