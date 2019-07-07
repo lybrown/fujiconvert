@@ -157,8 +157,7 @@ reset
 
     ldx wavei
     lda keyrepeatfirsttbl,x
-    ldy key
-    cpy:sty lastkey
+    ldy keyrepeat
     sne:lda keyrepeattbl,x
     sta keyrepeat
     lda finelevels
