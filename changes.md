@@ -42,6 +42,7 @@ First release
 0.3
 ---
 
+* [PDM] Replaced all occurrences of "PCM4+4" with "PDM"
 * [PDM] Improved sound quality by restricting fine levels to values 1-X
 * [PDM] Changed "A" key to toggle between settings optimized for
   linear/non-linear mixing (black background/white background)

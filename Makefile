@@ -1,5 +1,5 @@
 min:
-	make all params="-media thecart -method=pcm4+4"
+	make all params="-media thecart -method=pdm"
 
 all:
 	make -C a8 build/players.json params="$(params)"

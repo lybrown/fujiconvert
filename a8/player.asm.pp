@@ -156,17 +156,15 @@ resetsound
     ; init Covox
 >>> } else {
     ; init POKEY
-    mva #0 SKCTL
-    mva #3 SKCTL
-    lda #0
-    ldx #7
-    sta:rpl AUDF1,x-
+    mva #0 AUDC1
+    sta AUDC2
+    sta AUDC4
+    mva #$17 AUDC3
 >>>   if ($stereo) {
-    mva #0 SKCTL+$10
-    mva #3 SKCTL+$10
-    lda #0
-    ldx #7
-    sta:rpl AUDF1+$10,x-
+    mva #0 AUDC1+$10
+    sta AUDC2+$10
+    sta AUDC4+$10
+    mva #$17 AUDC3+$10
 >>>   }
 >>> }
     rts
@@ -212,6 +210,11 @@ main
     ldx bankindex
     mva #0 banks,x
 >>> }
+
+    mva #0 SKCTL
+    sta SKCTL+$10
+    mva #3 SKCTL
+    sta SKCTL+$10
 
     ; splash screen
     jsr splash

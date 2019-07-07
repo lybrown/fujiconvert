@@ -556,6 +556,7 @@ function autogain(buf) {
       }
     }
   }
+  console.log("Auto-gain max: " + max + " min: " + min);
   let gain = 1 / Math.max(-min, max);
   return gain;
 }
@@ -587,8 +588,11 @@ function mix(inbuf, settings) {
   }
   if (settings.autogain) {
     settings.gain = gain = autogain(outbuf);
-    console.log("Auto-gain: " + gain);
+    let dispgain = inchannels > outchannels ? 2 * gain : gain;
+    console.log("Auto-gain: " + dispgain);
+    text("resampleHeader", "Mix and Resample (Auto-gain=" + dispgain.toFixed(3) + ")");
   }
+  delay(0);
   // Apply gain
   for (let i = 0; i < outchannels; ++i) {
     outbuf.getChannelData(i).forEach((v, j, a) => a[j] = gain * v);
@@ -1045,7 +1049,7 @@ function convertSegments(renderedBuffer, settings) {
     }
   };
   let max =
-    settings.method == "pwm" ? Math.min(settings.period-5, 101) :
+    settings.method == "pwm" ? settings.period >= 105 ? 100 : settings.period-8 :
     settings.method == "pcm" ? 15 :
     settings.method == "pdm" ? 255 :
     255;
