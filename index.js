@@ -403,12 +403,12 @@ function getFrameCount(settings, buffer) {
   let outrate = settings.freq;
 
   let mediacapacity = getMediaCapacity(settings);
-  let mediaframecount = inrate / outrate * bytesToFrames(settings, mediacapacity) | 0;
+  let mediaframecount = parseInt(inrate / outrate * bytesToFrames(settings, mediacapacity));
   console.log("mediacapacity: " + mediacapacity);
   console.log("mediaframecount: " + mediaframecount);
 
   let usercapacity = getUserLimit(settings);
-  let userframecount = inrate / outrate * bytesToFrames(settings, usercapacity) | 0;
+  let userframecount = parseInt(inrate / outrate * bytesToFrames(settings, usercapacity))
   console.log("usercapacity: " + usercapacity);
   console.log("userframecount: " + userframecount);
 
@@ -604,7 +604,7 @@ async function resample_buf(inbuf, inwidth, outrate, context, progress) {
   let channelcount = inbuf.numberOfChannels;
   let inframecount = inbuf.length;
   let inrate = inbuf.sampleRate;
-  let outframecount = inframecount * outrate / inrate | 0;
+  let outframecount = parseInt(inframecount * outrate / inrate);
   let outbuf = context.createBuffer(channelcount, outframecount, outrate);
   let ch = [{}, {}];
   for (let i = 0; i < channelcount; ++i) {
@@ -927,7 +927,7 @@ function convertSegments(renderedBuffer, settings) {
       let nl = settings.nonlinpulse.split("/");
       let l = settings.linpulse.split("/");
       let paudf = [nl[0], l[0], nl[1], l[1]].map(x => parseInt(x));
-      paudf_segment = [...header(labels.paudf1, 4), paudf];
+      paudf_segment = [...header(labels.paudf1, 4), ...paudf];
       if (cart) {
         player_u8.set(paudf, labels.paudf1 - labels.relocated_start);
       }
