@@ -174,6 +174,15 @@
     <br>
     PDM Settings:<br>
 <div>
+    Preset:
+    <select name="preset" id="preset">
+    <option value="pdm16" selected> PDM16</option>
+    <option value="pdm8"> PDM8</option>
+    <option value="pdm14"> PDM14+bump</option>
+    <option value="pdm8bump"> PDM8+bump</option>
+    </select>
+</div>
+<div>
     DC Offset:
     <select name="dc">
     <option value="7"> +7</option>
@@ -212,6 +221,15 @@
     <option value="14" selected> 14</option>
     <option value="15"> 15</option>
     <option value="16"> 16</option>
+    </select>
+</div>
+<div>
+    Bump:
+    <select name="bump">
+    <option value="0"> 0</option>
+    <option value="1"> 1</option>
+    <option value="2"> 2</option>
+    <option value="3"> 3</option>
     </select>
 </div>
     Non-Linear Pulse: <input type="text" name="nonlinpulse" value="2/4" size="7"><br>

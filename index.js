@@ -1,6 +1,6 @@
 // vim: ts=2:sts=2:sw=2:et
 "use strict";
-let version = "0.3";
+let version = "0.3.1";
 let global = {};
 function setElement(element, value) {
   if (element[0] && element[0].type == "radio") {
@@ -77,6 +77,7 @@ function formElements() {
     "finelevels", "dc", "linpulse", "nonlinpulse",
     "dither", "autogain",
     "cart_type", "wav",
+    "preset", "dc", "finelevels", "bump", "nonlinpulse", "linpulse",
     "gain", "speed", "offset", "duration", "title", "artist",
   ];
 }
@@ -137,6 +138,35 @@ function constrainedSettings(settings) {
   let pad = lwidth + Math.max(2, 80 - lwidth - rwidth);
   lines.push("");
   return left.map((line, i) => line.padEnd(pad) + lines[i] + "\n").join("");
+}
+function getPresetSettings() {
+  let preset = settings.preset.value;
+  let form = document.getElementById("settings");
+  if (preset == "pdm14") {
+    setElement(form["dc"], "-7");
+    setElement(form["finelevels"], "14");
+    setElement(form["bump"], "1");
+    setElement(form["nonlinpulse"], "2/4");
+    setElement(form["linpulse"], "3/5");
+  } else if (preset == "pdm16") {
+    setElement(form["dc"], "-8");
+    setElement(form["finelevels"], "16");
+    setElement(form["bump"], "0");
+    setElement(form["nonlinpulse"], "4/6");
+    setElement(form["linpulse"], "4/6");
+  } else if (preset == "pdm8") {
+    setElement(form["dc"], "-4");
+    setElement(form["finelevels"], "8");
+    setElement(form["bump"], "0");
+    setElement(form["nonlinpulse"], "8/11");
+    setElement(form["linpulse"], "0/2");
+  } else if (preset == "pdm8bump") {
+    setElement(form["dc"], "-4");
+    setElement(form["finelevels"], "8");
+    setElement(form["bump"], "1");
+    setElement(form["nonlinpulse"], "8/11");
+    setElement(form["linpulse"], "0/2");
+  }
 }
 function getSettings() {
   writeLocalStorage();
@@ -833,7 +863,7 @@ function get_map_sample(max, settings) {
     const dc = parseInt(settings.dc);
     const levels = finelevels*16;
     const adjust = 16-finelevels;
-    const bump = adjust ? 1 : 0;
+    const bump = adjust ? Math.min(parseInt(settings.bump), adjust) : 0;
     return settings.dither ? function (sample) {
       let dither = Math.random()>0.5;
       let samp = ((sample*levels + levels) >> 1) + dc + dither;
@@ -1199,6 +1229,8 @@ function init() {
     addEventListener("click", stop);
   document.getElementById("file-input").
     addEventListener("change", readSingleFile);
+  document.getElementById("preset").
+    addEventListener("change", getPresetSettings);
   document.getElementById("settings").
     addEventListener("change", getSettings);
   document.getElementById("restoreDefaults").
