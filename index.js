@@ -1,6 +1,6 @@
 // vim: ts=2:sts=2:sw=2:et
 "use strict";
-let version = "0.3.1";
+let version = "0.3.2";
 let global = {};
 function setElement(element, value) {
   if (element[0] && element[0].type == "radio") {
@@ -74,10 +74,9 @@ function formElements() {
     "method", "channels", "region", "frequency", "resampling_window",
     "media",
     "maxsize",
-    "finelevels", "dc", "linpulse", "nonlinpulse",
+    "preset", "finelevels", "coarselevels", "bump", "dc", "linpulse", "nonlinpulse",
     "dither", "autogain",
     "cart_type", "wav",
-    "preset", "dc", "finelevels", "bump", "nonlinpulse", "linpulse",
     "gain", "speed", "offset", "duration", "title", "artist",
   ];
 }
@@ -142,27 +141,31 @@ function constrainedSettings(settings) {
 function getPresetSettings() {
   let preset = settings.preset.value;
   let form = document.getElementById("settings");
-  if (preset == "pdm14") {
+  if (preset == "16 14 1") {
     setElement(form["dc"], "-7");
     setElement(form["finelevels"], "14");
+    setElement(form["coarselevels"], "16");
     setElement(form["bump"], "1");
     setElement(form["nonlinpulse"], "2/4");
     setElement(form["linpulse"], "3/5");
-  } else if (preset == "pdm16") {
+  } else if (preset == "16 16 0") {
     setElement(form["dc"], "-8");
     setElement(form["finelevels"], "16");
+    setElement(form["coarselevels"], "16");
     setElement(form["bump"], "0");
     setElement(form["nonlinpulse"], "4/6");
     setElement(form["linpulse"], "4/6");
-  } else if (preset == "pdm8") {
+  } else if (preset == "8 8 0") {
     setElement(form["dc"], "-4");
     setElement(form["finelevels"], "8");
+    setElement(form["coarselevels"], "8");
     setElement(form["bump"], "0");
     setElement(form["nonlinpulse"], "8/11");
     setElement(form["linpulse"], "0/2");
-  } else if (preset == "pdm8bump") {
+  } else if (preset == "8 8 1") {
     setElement(form["dc"], "-4");
     setElement(form["finelevels"], "8");
+    setElement(form["coarselevels"], "8");
     setElement(form["bump"], "1");
     setElement(form["nonlinpulse"], "8/11");
     setElement(form["linpulse"], "0/2");
@@ -714,7 +717,11 @@ function splash(settings, labels) {
   }
   let method = [settings.method, settings.channels,
     (settings.freq | 0)+"Hz", settings.media, settings.region].join(" ");
-  settings.methodStr = method.replace(/^pdm/, "pdm" + settings.finelevels);
+  settings.methodStr = method.replace(/^pdm/,
+    "pdm" +
+    settings.coarselevels + "_" +
+    settings.finelevels + "_" +
+    settings.bump);
   text = text + trunc(" Method: " + method, 40);
   console.log("framecount: " + settings.framecount);
   text = text + trunc(" Duration: " +
@@ -860,8 +867,9 @@ function convert(renderedBuffer, settings) {
 function get_map_sample(max, settings) {
   if (settings.method == "pdm") {
     const finelevels = parseInt(settings.finelevels);
+    const coarselevels = parseInt(settings.coarselevels);
     const dc = parseInt(settings.dc);
-    const levels = finelevels*16;
+    const levels = finelevels*coarselevels;
     const adjust = 16-finelevels;
     const bump = adjust ? Math.min(parseInt(settings.bump), adjust) : 0;
     return settings.dither ? function (sample) {
