@@ -143,29 +143,29 @@ function getPresetSettings() {
   let form = document.getElementById("settings");
   if (preset == "16 14 1") {
     setElement(form["dc"], "-7");
-    setElement(form["finelevels"], "14");
     setElement(form["coarselevels"], "16");
+    setElement(form["finelevels"], "14");
     setElement(form["bump"], "1");
     setElement(form["nonlinpulse"], "2/4");
     setElement(form["linpulse"], "3/5");
   } else if (preset == "16 16 0") {
     setElement(form["dc"], "-8");
-    setElement(form["finelevels"], "16");
     setElement(form["coarselevels"], "16");
+    setElement(form["finelevels"], "16");
     setElement(form["bump"], "0");
     setElement(form["nonlinpulse"], "4/6");
     setElement(form["linpulse"], "4/6");
   } else if (preset == "8 8 0") {
     setElement(form["dc"], "-4");
-    setElement(form["finelevels"], "8");
     setElement(form["coarselevels"], "8");
+    setElement(form["finelevels"], "8");
     setElement(form["bump"], "0");
     setElement(form["nonlinpulse"], "8/11");
     setElement(form["linpulse"], "0/2");
   } else if (preset == "16 8 0") {
     setElement(form["dc"], "-4");
-    setElement(form["finelevels"], "16");
-    setElement(form["coarselevels"], "8");
+    setElement(form["coarselevels"], "16");
+    setElement(form["finelevels"], "8");
     setElement(form["bump"], "0");
     setElement(form["nonlinpulse"], "8/11");
     setElement(form["linpulse"], "0/2");
