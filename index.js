@@ -167,8 +167,8 @@ function getPresetSettings() {
     setElement(form["finelevels"], "16");
     setElement(form["coarselevels"], "8");
     setElement(form["bump"], "0");
-    setElement(form["nonlinpulse"], "4/6");
-    setElement(form["linpulse"], "4/6");
+    setElement(form["nonlinpulse"], "8/11");
+    setElement(form["linpulse"], "0/2");
   }
 }
 function getSettings() {
