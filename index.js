@@ -1,6 +1,6 @@
 // vim: ts=2:sts=2:sw=2:et
 "use strict";
-let version = "0.3.2";
+let version = "0.3.3";
 let global = {};
 function setElement(element, value) {
   if (element[0] && element[0].type == "radio") {
@@ -162,13 +162,13 @@ function getPresetSettings() {
     setElement(form["bump"], "0");
     setElement(form["nonlinpulse"], "8/11");
     setElement(form["linpulse"], "0/2");
-  } else if (preset == "8 8 1") {
+  } else if (preset == "16 8 0") {
     setElement(form["dc"], "-4");
-    setElement(form["finelevels"], "8");
+    setElement(form["finelevels"], "16");
     setElement(form["coarselevels"], "8");
-    setElement(form["bump"], "1");
-    setElement(form["nonlinpulse"], "8/11");
-    setElement(form["linpulse"], "0/2");
+    setElement(form["bump"], "0");
+    setElement(form["nonlinpulse"], "4/6");
+    setElement(form["linpulse"], "4/6");
   }
 }
 function getSettings() {

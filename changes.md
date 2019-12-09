@@ -66,3 +66,30 @@ First release
 * [The!Cart] Leave IRQs and NMIs enabled in splash screen
   http://atariage.com/forums/topic/279232-fujiconvert-01/page-7#entry4081580
 * [cart] Add option to produce either .car or .raw file
+
+0.3.1
+-----
+
+* Added PDM Presets:
+  * PDM16 - Original full dynamic range method
+  * PDM8 - Hardware Bit 3 mitigation? Avoids flipping bit 3 of the fine channel
+  * PDM14+bump - Sounds good with Altirra 3.90. Eliminates pops due to volume 0
+    on fine channel.
+  * PDM8+bump - Maybe a way to simulate PDM8 in Altirra 3.90. Eliminates pops.
+* Added Bump setting. Fine channel is allowed to play levels X through X+Y
+  where X is Bump and Y is Fine Levels.
+
+0.3.2
+-----
+
+* Added Coarse Levels setting
+* Changed presets to:
+  * 16 16 0 - Full dynamic range
+  * 8 8 0 - Hardware bit 3 mitigation
+  * 16 14 1 - Good for Altirra
+  * 8 8 1 - Simulation of 8 8 0 in Altirra
+
+0.3.3
+-----
+
+* Replaced "8 8 1" preset with "16 8 0" preset.
