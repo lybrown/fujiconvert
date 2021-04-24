@@ -12,7 +12,7 @@ show: players.js
 	chrome index.html
 
 server:
-	python -m SimpleHTTPServer
+	python -m http.server
 
 files = index.html index.js jszip.min.js players.js \
 	progress.js readwav.js resample.js waveWorker.js

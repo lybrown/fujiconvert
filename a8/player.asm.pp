@@ -322,6 +322,9 @@ main
 >>>   } elsif ($covox) {
     lda <<<$window>>>+<<<$page>>>*$100,y ; 4 cycles
     sta COVOX0 ; 4 cycles
+>>>       if (!$stereo) {
+    sta COVOX1 ; 4 cycles
+>>>       }
 >>>     if ($hpos) {
     sta HPOSP0 ; 4 cycles
 >>>     }
@@ -332,7 +335,7 @@ main
     sta HPOSP1 ; 4 cycles
 >>>       }
 >>>     }
->>>     return (8 + ($hpos ? 4 : 0)) * ($stereo ? 2 : 1);
+>>>     return $stereo ? (8 + ($hpos ? 4 : 0)) * 2 : (12 + ($hpos ? 4 : 0));
 >>>   } elsif ($pcm) {
 >>>     $maxhalf = 7;
 >>>     if ($stereo) {

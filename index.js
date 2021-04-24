@@ -591,6 +591,7 @@ function autogain(buf) {
   }
   console.log("Auto-gain max: " + max + " min: " + min);
   let gain = 1 / Math.max(-min, max);
+  if (gain < 1) gain = 1;
   return gain;
 }
 

@@ -16,6 +16,7 @@ pdm-test.obx: keys.asm
 out = > $@~ && mv $@~ $@
 
 atari = altirra-sound-debug
+atari = altirra
 
 %.run: %.xex
 	$(atari) $<
