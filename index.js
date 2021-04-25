@@ -1,6 +1,6 @@
 // vim: ts=2:sts=2:sw=2:et
 "use strict";
-let version = "0.3.3";
+let version = "0.3.4";
 let global = {};
 function setElement(element, value) {
   if (element[0] && element[0].type == "radio") {
@@ -137,6 +137,13 @@ function constrainedSettings(settings) {
   let pad = lwidth + Math.max(2, 80 - lwidth - rwidth);
   lines.push("");
   return left.map((line, i) => line.padEnd(pad) + lines[i] + "\n").join("");
+}
+function customPDMSettings() {
+  let form = document.getElementById("settings");
+  let settings = ["dc", "coarselevels", "finelevels", "bump",
+    "nonlinpulse", "linpulse"];
+  settings.forEach(el => form[el].addEventListener("change",
+    _ => setElement(form["preset"], "custom")));
 }
 function getPresetSettings() {
   let preset = settings.preset.value;
@@ -1240,6 +1247,7 @@ function init() {
     addEventListener("change", readSingleFile);
   document.getElementById("preset").
     addEventListener("change", getPresetSettings);
+  customPDMSettings();
   document.getElementById("settings").
     addEventListener("change", getSettings);
   document.getElementById("restoreDefaults").
