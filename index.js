@@ -1,6 +1,6 @@
 // vim: ts=2:sts=2:sw=2:et
 "use strict";
-let version = "0.3.4";
+let version = "0.3.5";
 let global = {};
 function setElement(element, value) {
   if (element[0] && element[0].type == "radio") {
@@ -220,7 +220,6 @@ function getSettings() {
 
   // Constraints
   if (settings.media == "ide") {
-    settings.method = "pdm";
     if (settings.channels == "stereo") {
       settings.frequency = "22kHz";
     } else {
@@ -629,9 +628,8 @@ function mix(inbuf, settings) {
   }
   if (settings.autogain) {
     settings.gain = gain = autogain(outbuf);
-    let dispgain = inchannels > outchannels ? 2 * gain : gain;
-    console.log("Auto-gain: " + dispgain);
-    text("resampleHeader", "Mix and Resample (Auto-gain=" + dispgain.toFixed(3) + ")");
+    console.log("Auto-gain: " + gain);
+    text("resampleHeader", "Mix and Resample (Auto-gain=" + gain.toFixed(3) + ")");
   }
   delay(0);
   // Apply gain
@@ -903,6 +901,7 @@ function get_map_sample(max, settings) {
   }
 }
 function convertIDE(renderedBuffer, settings) {
+  settings.method = settings.method == "covox" ? "covox" : "pdm";
   let method = [settings.method, settings.channels,
     (settings.freq | 0)+"Hz", settings.media, settings.region].join(" ");
   settings.methodStr = method.replace(/^pdm/, "pdm" + settings.finelevels);
@@ -911,8 +910,11 @@ function convertIDE(renderedBuffer, settings) {
   let data2 = stereo ? renderedBuffer.getChannelData(1) : undefined;
   let len = stereo ? data.length * 2 : data.length;
   let file = new Uint8Array(len);
+  let ext = settings.method == "covox" ?
+    stereo ? ".cos" : ".cov" :
+    stereo ? ".pds" : ".pdm";
   let done = function() {
-    zip_and_offer([file, ".pdm"], settings);
+    zip_and_offer([file, ext], settings);
   };
   let max = 255;
   let map_sample = get_map_sample(max, settings);

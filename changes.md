@@ -93,3 +93,20 @@ First release
 -----
 
 * Replaced "8 8 1" preset with "16 8 0" preset.
+
+0.3.4
+-----
+
+* Change preset drop down to "Custom" whenever the PDM settings are changed.
+
+0.3.5
+-----
+
+* Use the following extensions for IDE files:
+  * .pdm = mono PDM
+  * .pds = stereo PDM
+  * .cov = mono Covox
+  * .cos = stereo Covox
+  * The "Playback Method" and "Channels" radio buttons determine which
+    extension will be used.
+* Fix gain reported in UI (no functional change)
